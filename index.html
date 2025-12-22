@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>4students - Learning Assistance Platform</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+</head>
+<body>
+    <div id="root"></div>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    
+    <!-- Firebase Config -->
+    <script src="js/firebase-config.js"></script>
+
+    <!-- React & Babel -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <!-- Main App -->
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // Firebase는 firebase-config.js에서 이미 초기화됨
+
+        // Navigation Component
+        const Navigation = () => {
+            const [isScrolled, setIsScrolled] = useState(false);
+            const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+            useEffect(() => {
+                const handleScroll = () => {
+                    setIsScrolled(window.scrollY > 50);
+                };
+                window.addEventListener('scroll', handleScroll);
+                return () => window.removeEventListener('scroll', handleScroll);
+            }, []);
+
+            const scrollToSection = (id) => {
+                const element = document.getElementById(id);
+                if (element) {
+                    element.scrollIntoView({ behavior: 'smooth' });
+                    setIsMobileMenuOpen(false);
+                }
+            };
+
+            return (
+                <nav className={`navbar ${isScrolled ? 'scrolled' : ''}`}>
+                    <div className="nav-container">
+                        <div className="nav-logo">
+                            <img src="images/logo_white.png" alt="4students Logo" />
+                        </div>
+                        <button 
+                            className="mobile-menu-btn"
+                            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                        >
+                            <i className={`fas ${isMobileMenuOpen ? 'fa-times' : 'fa-bars'}`}></i>
+                        </button>
+                        <ul className={`nav-menu ${isMobileMenuOpen ? 'active' : ''}`}>
+                            <li><a onClick={() => scrollToSection('hero')}>Home</a></li>
+                            <li><a onClick={() => scrollToSection('about')}>About</a></li>
+                            <li><a onClick={() => scrollToSection('mission')}>Mission</a></li>
+                            <li><a onClick={() => scrollToSection('values')}>Values</a></li>
+                            <li><a onClick={() => scrollToSection('story')}>Our Story</a></li>
+                            <li><a onClick={() => scrollToSection('contact')} className="cta-btn">Contact</a></li>
+                            <li>
+                                <button 
+                                    className="login-btn"
+                                    onClick={() => {
+                                        const event = new CustomEvent('showLogin');
+                                        window.dispatchEvent(event);
+                                    }}
+                                >
+                                    <i className="fas fa-sign-in-alt"></i> 로그인
+                                </button>
+                            </li>
+                        </ul>
+                    </div>
+                </nav>
+            );
+        };
+
+        // Hero Section
+        const Hero = () => {
+            return (
+                <section id="hero" className="hero">
+                    <div className="hero-background">
+                        <div className="hero-overlay"></div>
+                    </div>
+                    <div className="hero-content">
+                        <div className="hero-logo-large">
+                            <img src="images/logo_white.png" alt="4students" />
+                        </div>
+                        <h1 className="hero-title">
+                            Empowering <span className="highlight">Students</span>
+                        </h1>
+                        <p className="hero-subtitle">
+                            혁신적인 교육 플랫폼으로 모든 학생들의 성공을 지원합니다
+                        </p>
+                        <div className="hero-buttons">
+                            <button className="btn btn-primary" onClick={() => {
+                                document.getElementById('about').scrollIntoView({ behavior: 'smooth' });
+                            }}>
+                                우리의 이야기
+                            </button>
+                            <button className="btn btn-secondary" onClick={() => {
+                                document.getElementById('contact').scrollIntoView({ behavior: 'smooth' });
+                            }}>
+                                함께하기
+                            </button>
+                        </div>
+                    </div>
+                    <div className="scroll-indicator">
+                        <i className="fas fa-chevron-down"></i>
+                    </div>
+                </section>
+            );
+        };
+
+        // About Section
+        const About = () => {
+            const sectionRef = useRef(null);
+            const [isVisible, setIsVisible] = useState(false);
+
+            useEffect(() => {
+                const observer = new IntersectionObserver(
+                    ([entry]) => {
+                        if (entry.isIntersecting) {
+                            setIsVisible(true);
+                        }
+                    },
+                    { threshold: 0.2 }
+                );
+
+                if (sectionRef.current) {
+                    observer.observe(sectionRef.current);
+                }
+
+                return () => {
+                    if (sectionRef.current) {
+                        observer.unobserve(sectionRef.current);
+                    }
+                };
+            }, []);
+
+            return (
+                <section id="about" className="about" ref={sectionRef}>
+                    <div className={`container fade-in ${isVisible ? 'visible' : ''}`}>
+                        <div className="section-header">
+                            <span className="section-badge">About Us</span>
+                            <h2 className="section-title">4students란?</h2>
+                            <p className="section-description">
+                                학생들의 성장과 성공을 위한 혁신적인 교육 플랫폼
+                            </p>
+                        </div>
+                        <div className="about-content">
+                            <div className="about-text">
+                                <p className="about-intro">
+                                    <strong>4students</strong>는 모든 학생들이 자신의 잠재력을 최대한 발휘할 수 있도록 
+                                    돕는 교육 플랫폼입니다.
+                                </p>
+                                <p>
+                                    우리는 기술과 교육을 융합하여 학생들에게 개인화된 학습 경험을 제공합니다. 
+                                    각 학생의 학습 스타일과 속도를 존중하며, 그들이 자신만의 방식으로 
+                                    지식을 습득하고 성장할 수 있도록 지원합니다.
+                                </p>
+                                <p>
+                                    전통적인 교육의 한계를 넘어, 우리는 학생들이 미래 사회에서 
+                                    필요로 하는 핵심 역량을 개발할 수 있도록 돕습니다.
+                                </p>
+                            </div>
+                            <div className="about-stats">
+                                <div className="stat-card">
+                                    <div className="stat-number">10K+</div>
+                                    <div className="stat-label">활동 학생</div>
+                                </div>
+                                <div className="stat-card">
+                                    <div className="stat-number">500+</div>
+                                    <div className="stat-label">교육 콘텐츠</div>
+                                </div>
+                                <div className="stat-card">
+                                    <div className="stat-number">95%</div>
+                                    <div className="stat-label">만족도</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            );
+        };
+
+        // Mission Section
+        const Mission = () => {
+            const sectionRef = useRef(null);
+            const [isVisible, setIsVisible] = useState(false);
+
+            useEffect(() => {
+                const observer = new IntersectionObserver(
+                    ([entry]) => {
+                        if (entry.isIntersecting) {
+                            setIsVisible(true);
+                        }
+                    },
+                    { threshold: 0.2 }
+                );
+
+                if (sectionRef.current) {
+                    observer.observe(sectionRef.current);
+                }
+
+                return () => {
+                    if (sectionRef.current) {
+                        observer.unobserve(sectionRef.current);
+                    }
+                };
+            }, []);
+
+            return (
+                <section id="mission" className="mission" ref={sectionRef}>
+                    <div className={`container fade-in ${isVisible ? 'visible' : ''}`}>
+                        <div className="mission-content">
+                            <div className="mission-icon">
+                                <i className="fas fa-rocket"></i>
+                            </div>
+                            <div className="section-header">
+                                <span className="section-badge light">Our Mission</span>
+                                <h2 className="section-title light">우리의 미션</h2>
+                            </div>
+                            <div className="mission-text">
+                                <h3>모든 학생들에게 최상의 학습 경험을 제공합니다</h3>
+                                <p>
+                                    우리는 교육의 접근성을 높이고, 개인화된 학습 환경을 통해 
+                                    모든 학생이 자신의 꿈을 실현할 수 있도록 돕습니다.
+                                </p>
+                                <p>
+                                    기술과 혁신을 통해 교육의 경계를 넓히고, 학생들이 
+                                    자기주도적 학습자로 성장할 수 있는 환경을 만듭니다.
+                                </p>
+                            </div>
+                            <div className="mission-features">
+                                <div className="feature-item">
+                                    <i className="fas fa-check-circle"></i>
+                                    <span>개인화된 학습 경로</span>
+                                </div>
+                                <div className="feature-item">
+                                    <i className="fas fa-check-circle"></i>
+                                    <span>실시간 피드백 시스템</span>
+                                </div>
+                                <div className="feature-item">
+                                    <i className="fas fa-check-circle"></i>
+                                    <span>협력적 학습 환경</span>
+                                </div>
+                                <div className="feature-item">
+                                    <i className="fas fa-check-circle"></i>
+                                    <span>지속적인 성장 지원</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            );
+        };
+
+        // Values Section
+        const Values = () => {
+            const sectionRef = useRef(null);
+            const [isVisible, setIsVisible] = useState(false);
+
+            const values = [
+                {
+                    icon: 'fa-lightbulb',
+                    title: '혁신',
+                    description: '끊임없이 새로운 교육 방법을 연구하고 적용하여 학생들에게 최고의 학습 경험을 제공합니다.'
+                },
+                {
+                    icon: 'fa-universal-access',
+                    title: '접근성',
+                    description: '모든 학생들이 시간과 장소에 구애받지 않고 양질의 교육 콘텐츠에 접근할 수 있도록 합니다.'
+                },
+                {
+                    icon: 'fa-users',
+                    title: '협력',
+                    description: '학생, 교사, 학부모가 함께 소통하고 협력하는 교육 공동체를 만들어갑니다.'
+                },
+                {
+                    icon: 'fa-chart-line',
+                    title: '성장',
+                    description: '학생들의 지속적인 성장과 발전을 지원하며, 그들의 잠재력을 최대한 발휘하도록 돕습니다.'
+                }
+            ];
+
+            useEffect(() => {
+                const observer = new IntersectionObserver(
+                    ([entry]) => {
+                        if (entry.isIntersecting) {
+                            setIsVisible(true);
+                        }
+                    },
+                    { threshold: 0.2 }
+                );
+
+                if (sectionRef.current) {
+                    observer.observe(sectionRef.current);
+                }
+
+                return () => {
+                    if (sectionRef.current) {
+                        observer.unobserve(sectionRef.current);
+                    }
+                };
+            }, []);
+
+            return (
+                <section id="values" className="values" ref={sectionRef}>
+                    <div className={`container fade-in ${isVisible ? 'visible' : ''}`}>
+                        <div className="section-header">
+                            <span className="section-badge">Our Values</span>
+                            <h2 className="section-title">우리의 가치</h2>
+                            <p className="section-description">
+                                4students를 이끌어가는 핵심 가치들
+                            </p>
+                        </div>
+                        <div className="values-grid">
+                            {values.map((value, index) => (
+                                <div 
+                                    key={index} 
+                                    className="value-card"
+                                    style={{ animationDelay: `${index * 0.1}s` }}
+                                >
+                                    <div className="value-icon">
+                                        <i className={`fas ${value.icon}`}></i>
+                                    </div>
+                                    <h3 className="value-title">{value.title}</h3>
+                                    <p className="value-description">{value.description}</p>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </section>
+            );
+        };
+
+        // Story Section
+        const Story = () => {
+            const sectionRef = useRef(null);
+            const [isVisible, setIsVisible] = useState(false);
+
+            const timeline = [
+                {
+                    year: '2020',
+                    title: '시작',
+                    description: '교육의 혁신을 꿈꾸며 4students가 탄생했습니다.'
+                },
+                {
+                    year: '2021',
+                    title: '성장',
+                    description: '첫 1,000명의 학생들과 함께 플랫폼을 발전시켰습니다.'
+                },
+                {
+                    year: '2022',
+                    title: '확장',
+                    description: '다양한 교육 콘텐츠와 기능을 추가하며 규모를 확장했습니다.'
+                },
+                {
+                    year: '2023',
+                    title: '혁신',
+                    description: 'AI 기반 개인화 학습 시스템을 도입했습니다.'
+                },
+                {
+                    year: '2024',
+                    title: '도약',
+                    description: '10,000명 이상의 학생들과 함께하는 교육 플랫폼으로 성장했습니다.'
+                }
+            ];
+
+            useEffect(() => {
+                const observer = new IntersectionObserver(
+                    ([entry]) => {
+                        if (entry.isIntersecting) {
+                            setIsVisible(true);
+                        }
+                    },
+                    { threshold: 0.2 }
+                );
+
+                if (sectionRef.current) {
+                    observer.observe(sectionRef.current);
+                }
+
+                return () => {
+                    if (sectionRef.current) {
+                        observer.unobserve(sectionRef.current);
+                    }
+                };
+            }, []);
+
+            return (
+                <section id="story" className="story" ref={sectionRef}>
+                    <div className={`container fade-in ${isVisible ? 'visible' : ''}`}>
+                        <div className="section-header">
+                            <span className="section-badge">Our Story</span>
+                            <h2 className="section-title">우리의 여정</h2>
+                            <p className="section-description">
+                                4students가 걸어온 길
+                            </p>
+                        </div>
+                        <div className="story-content">
+                            <div className="story-intro">
+                                <p>
+                                    4students는 <strong>"모든 학생은 성공할 수 있다"</strong>는 믿음에서 시작되었습니다. 
+                                    우리는 전통적인 교육 시스템의 한계를 극복하고, 기술을 통해 더 나은 학습 경험을 
+                                    제공할 수 있다고 믿었습니다.
+                                </p>
+                                <p>
+                                    작은 아이디어에서 시작된 우리의 여정은 수많은 학생들의 성공 스토리로 
+                                    이어지고 있습니다. 우리는 계속해서 혁신하고 발전하며, 
+                                    더 많은 학생들에게 희망과 기회를 제공하고자 합니다.
+                                </p>
+                            </div>
+                            <div className="timeline">
+                                {timeline.map((item, index) => (
+                                    <div 
+                                        key={index} 
+                                        className="timeline-item"
+                                        style={{ animationDelay: `${index * 0.15}s` }}
+                                    >
+                                        <div className="timeline-dot"></div>
+                                        <div className="timeline-content">
+                                            <div className="timeline-year">{item.year}</div>
+                                            <h3 className="timeline-title">{item.title}</h3>
+                                            <p className="timeline-description">{item.description}</p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            );
+        };
+
+        // Contact Section
+        const Contact = () => {
+            const sectionRef = useRef(null);
+            const [isVisible, setIsVisible] = useState(false);
+
+            useEffect(() => {
+                const observer = new IntersectionObserver(
+                    ([entry]) => {
+                        if (entry.isIntersecting) {
+                            setIsVisible(true);
+                        }
+                    },
+                    { threshold: 0.2 }
+                );
+
+                if (sectionRef.current) {
+                    observer.observe(sectionRef.current);
+                }
+
+                return () => {
+                    if (sectionRef.current) {
+                        observer.unobserve(sectionRef.current);
+                    }
+                };
+            }, []);
+
+            return (
+                <section id="contact" className="contact" ref={sectionRef}>
+                    <div className={`container fade-in ${isVisible ? 'visible' : ''}`}>
+                        <div className="contact-content">
+                            <div className="section-header">
+                                <span className="section-badge light">Get In Touch</span>
+                                <h2 className="section-title light">함께 시작하세요</h2>
+                                <p className="section-description light">
+                                    4students와 함께 새로운 학습 경험을 시작해보세요
+                                </p>
+                            </div>
+                            <div className="contact-buttons">
+                                <button className="btn btn-large btn-primary">
+                                    <i className="fas fa-rocket"></i>
+                                    지금 시작하기
+                                </button>
+                                <button className="btn btn-large btn-outline">
+                                    <i className="fas fa-envelope"></i>
+                                    문의하기
+                                </button>
+                            </div>
+                            <div className="contact-info">
+                                <div className="contact-item">
+                                    <i className="fas fa-envelope"></i>
+                                    <span>contact@4students.com</span>
+                                </div>
+                                <div className="contact-item">
+                                    <i className="fas fa-phone"></i>
+                                    <span>02-1234-5678</span>
+                                </div>
+                            </div>
+                            <div className="social-links">
+                                <a href="#" className="social-link"><i className="fab fa-facebook"></i></a>
+                                <a href="#" className="social-link"><i className="fab fa-instagram"></i></a>
+                                <a href="#" className="social-link"><i className="fab fa-twitter"></i></a>
+                                <a href="#" className="social-link"><i className="fab fa-linkedin"></i></a>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            );
+        };
+
+        // Footer Component
+        const Footer = () => {
+            return (
+                <footer className="footer">
+                    <div className="container">
+                        <div className="footer-content">
+                            <div className="footer-logo">
+                                <img src="images/logo.png" alt="4students" />
+                            </div>
+                            <p className="footer-text">
+                                © 2024 4students. All rights reserved.
+                            </p>
+                        </div>
+                    </div>
+                </footer>
+            );
+        };
+
+        // Login Page Component
+        const LoginPage = ({ onClose, onLogin }) => {
+            const [email, setEmail] = useState('');
+            const [password, setPassword] = useState('');
+            const [error, setError] = useState('');
+            const [isSubmitting, setIsSubmitting] = useState(false);
+
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                setError('');
+                setIsSubmitting(true);
+
+                // 간단한 유효성 검사
+                if (!email || !password) {
+                    setError('이메일과 비밀번호를 입력해주세요.');
+                    setIsSubmitting(false);
+                    return;
+                }
+
+                try {
+                    // Firebase 초기화 확인 및 auth 가져오기
+                    if (typeof firebase === 'undefined') {
+                        throw new Error('Firebase SDK가 로드되지 않았습니다. 페이지를 새로고침해주세요.');
+                    }
+
+                    const firebaseAuth = firebase.auth();
+                    
+                    // Firebase Authentication으로 로그인
+                    const userCredential = await firebaseAuth.signInWithEmailAndPassword(email, password);
+                    const user = userCredential.user;
+
+                    // 성공 시 complete_login.html로 이동
+                    window.location.href = 'complete_login.html';
+                    
+                } catch (error) {
+                    setIsSubmitting(false);
+                    
+                    // Firebase 에러 메시지 처리
+                    let errorMessage = '로그인 중 오류가 발생했습니다.';
+                    
+                    switch (error.code) {
+                        case 'auth/user-not-found':
+                            errorMessage = '등록되지 않은 이메일입니다.';
+                            break;
+                        case 'auth/wrong-password':
+                            errorMessage = '비밀번호가 올바르지 않습니다.';
+                            break;
+                        case 'auth/invalid-email':
+                            errorMessage = '올바른 이메일 형식이 아닙니다.';
+                            break;
+                        case 'auth/user-disabled':
+                            errorMessage = '비활성화된 계정입니다.';
+                            break;
+                        case 'auth/too-many-requests':
+                            errorMessage = '너무 많은 시도가 있었습니다. 나중에 다시 시도해주세요.';
+                            break;
+                        case 'auth/network-request-failed':
+                            errorMessage = '네트워크 오류가 발생했습니다. 인터넷 연결을 확인해주세요.';
+                            break;
+                        default:
+                            errorMessage = error.message || '로그인 중 오류가 발생했습니다.';
+                    }
+                    
+                    setError(errorMessage);
+                    console.error('로그인 오류:', error);
+                }
+            };
+
+            return (
+                <div className="login-overlay" onClick={onClose}>
+                    <div className="login-container" onClick={(e) => e.stopPropagation()}>
+                        <button className="login-close-btn" onClick={onClose}>
+                            <i className="fas fa-times"></i>
+                        </button>
+                        <div className="login-header">
+                            <img src="images/logo_white.png" alt="4students" className="login-logo" />
+                            <h2>로그인</h2>
+                            <p>4students에 오신 것을 환영합니다</p>
+                        </div>
+                        <form className="login-form" onSubmit={handleSubmit}>
+                            {error && <div className="login-error">{error}</div>}
+                            <div className="form-group">
+                                <label htmlFor="email">
+                                    <i className="fas fa-envelope"></i> 이메일
+                                </label>
+                                <input
+                                    type="email"
+                                    id="email"
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    placeholder="이메일을 입력하세요"
+                                    required
+                                />
+                            </div>
+                            <div className="form-group">
+                                <label htmlFor="password">
+                                    <i className="fas fa-lock"></i> 비밀번호
+                                </label>
+                                <input
+                                    type="password"
+                                    id="password"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    placeholder="비밀번호를 입력하세요"
+                                    required
+                                />
+                            </div>
+                            <div className="form-options">
+                                <label className="checkbox-label">
+                                    <input type="checkbox" />
+                                    <span>로그인 상태 유지</span>
+                                </label>
+                                <a href="#" className="forgot-password">비밀번호 찾기</a>
+                            </div>
+                            <button type="submit" className="login-submit-btn" disabled={isSubmitting}>
+                                {isSubmitting ? (
+                                    <>
+                                        <i className="fas fa-spinner fa-spin"></i> 로그인 중...
+                                    </>
+                                ) : (
+                                    <>
+                                        <i className="fas fa-sign-in-alt"></i> 로그인
+                                    </>
+                                )}
+                            </button>
+                            <div className="login-signup">
+                                계정이 없으신가요? <a href="signup.html">회원가입</a>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            );
+        };
+
+        // Main App Component
+        const App = () => {
+            const [showLogin, setShowLogin] = useState(false);
+            const [isLoggedIn, setIsLoggedIn] = useState(false);
+            const [user, setUser] = useState(null);
+
+            // Navigation에서 로그인 버튼 클릭 이벤트 리스너
+            useEffect(() => {
+                const handleShowLogin = () => setShowLogin(true);
+                window.addEventListener('showLogin', handleShowLogin);
+                return () => {
+                    window.removeEventListener('showLogin', handleShowLogin);
+                };
+            }, []);
+
+            // 로그인은 Firebase에서 처리하고 complete_login.html로 리다이렉트되므로
+            // 이 함수는 더 이상 사용되지 않지만, LoginPage의 onLogin prop을 위해 유지
+            const handleLogin = () => {
+                // 실제 로그인은 LoginPage 내부에서 Firebase로 처리됨
+            };
+
+            return (
+                <div className="app">
+                    <Navigation />
+                    <Hero />
+                    <About />
+                    <Mission />
+                    <Values />
+                    <Story />
+                    <Contact />
+                    <Footer />
+                    {showLogin && (
+                        <LoginPage 
+                            onClose={() => setShowLogin(false)}
+                            onLogin={handleLogin}
+                        />
+                    )}
+                </div>
+            );
+        };
+
+        // Render App
+        ReactDOM.render(<App />, document.getElementById('root'));
+    </script>
+</body>
+</html>

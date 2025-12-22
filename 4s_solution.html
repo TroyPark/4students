@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Solution - 4students</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/solution.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+</head>
+<body>
+    <div id="root"></div>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    
+    <!-- Firebase Config -->
+    <script src="js/firebase-config.js"></script>
+
+    <!-- React & Babel -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <!-- Main App -->
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        // Sidebar Component
+        const Sidebar = ({ isCollapsed, onToggle, currentSection, onSectionChange }) => {
+            const menuItems = [
+                { id: 'dashboard', icon: 'fa-home', label: '대시보드', badge: null },
+                { id: 'students', icon: 'fa-users', label: '학생 관리', badge: '12' },
+                { id: 'diagnosis', icon: 'fa-dna', label: '학습 DNA 진단', badge: null },
+                { id: 'training', icon: 'fa-graduation-cap', label: '맞춤형 훈련', badge: '6' },
+                { id: 'analytics', icon: 'fa-chart-line', label: '분석 리포트', badge: null },
+                { id: 'settings', icon: 'fa-cog', label: '설정', badge: null },
+            ];
+
+            return (
+                <aside className={`sidebar ${isCollapsed ? 'collapsed' : ''}`}>
+                    <div className="sidebar-header">
+                        {!isCollapsed && (
+                            <div className="sidebar-logo">
+                                <img src="images/logo.png" alt="4students" />
+                                <span className="sidebar-title">4students</span>
+                            </div>
+                        )}
+                        <button className="sidebar-toggle" onClick={onToggle}>
+                            <i className={`fas ${isCollapsed ? 'fa-chevron-right' : 'fa-chevron-left'}`}></i>
+                        </button>
+                    </div>
+                    <nav className="sidebar-nav">
+                        <ul className="sidebar-menu">
+                            {menuItems.map((item) => (
+                                <li key={item.id}>
+                                    <a
+                                        href="#"
+                                        className={`sidebar-menu-item ${currentSection === item.id ? 'active' : ''}`}
+                                        onClick={(e) => {
+                                            e.preventDefault();
+                                            onSectionChange(item.id);
+                                        }}
+                                        title={isCollapsed ? item.label : ''}
+                                    >
+                                        <i className={`fas ${item.icon}`}></i>
+                                        {!isCollapsed && (
+                                            <>
+                                                <span>{item.label}</span>
+                                                {item.badge && <span className="menu-badge">{item.badge}</span>}
+                                            </>
+                                        )}
+                                    </a>
+                                </li>
+                            ))}
+                        </ul>
+                    </nav>
+                    <div className="sidebar-footer">
+                        <button className="logout-btn-sidebar" onClick={async () => {
+                            if (typeof auth !== 'undefined' && auth) {
+                                try {
+                                    await auth.signOut();
+                                    window.location.href = 'index.html';
+                                } catch (error) {
+                                    console.error('로그아웃 오류:', error);
+                                }
+                            }
+                        }}>
+                            <i className="fas fa-sign-out-alt"></i>
+                            {!isCollapsed && <span>로그아웃</span>}
+                        </button>
+                    </div>
+                </aside>
+            );
+        };
+
+        // Dashboard Section
+        const Dashboard = () => {
+            return (
+                <div className="content-section">
+                    <div className="content-header">
+                        <h1>대시보드</h1>
+                        <p className="content-subtitle">전체 현황을 한눈에 확인하세요</p>
+                    </div>
+                    <div className="stats-grid">
+                        <div className="stat-card">
+                            <div className="stat-icon">
+                                <i className="fas fa-users"></i>
+                            </div>
+                            <div className="stat-info">
+                                <div className="stat-value">1,234</div>
+                                <div className="stat-label">활성 학생</div>
+                            </div>
+                        </div>
+                        <div className="stat-card">
+                            <div className="stat-icon">
+                                <i className="fas fa-clipboard-check"></i>
+                            </div>
+                            <div className="stat-info">
+                                <div className="stat-value">856</div>
+                                <div className="stat-label">진단 완료</div>
+                            </div>
+                        </div>
+                        <div className="stat-card">
+                            <div className="stat-icon">
+                                <i className="fas fa-chart-line"></i>
+                            </div>
+                            <div className="stat-info">
+                                <div className="stat-value">92%</div>
+                                <div className="stat-label">평균 만족도</div>
+                            </div>
+                        </div>
+                        <div className="stat-card">
+                            <div className="stat-icon">
+                                <i className="fas fa-calendar-check"></i>
+                            </div>
+                            <div className="stat-info">
+                                <div className="stat-value">48</div>
+                                <div className="stat-label">이번 주 신규</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="content-cards">
+                        <div className="content-card">
+                            <h2>최근 활동</h2>
+                            <div className="activity-list">
+                                <div className="activity-item">
+                                    <div className="activity-icon">
+                                        <i className="fas fa-user-plus"></i>
+                                    </div>
+                                    <div className="activity-content">
+                                        <p className="activity-title">새로운 학생 등록</p>
+                                        <p className="activity-time">2시간 전</p>
+                                    </div>
+                                </div>
+                                <div className="activity-item">
+                                    <div className="activity-icon">
+                                        <i className="fas fa-dna"></i>
+                                    </div>
+                                    <div className="activity-content">
+                                        <p className="activity-title">학습 DNA 진단 완료</p>
+                                        <p className="activity-time">5시간 전</p>
+                                    </div>
+                                </div>
+                                <div className="activity-item">
+                                    <div className="activity-icon">
+                                        <i className="fas fa-graduation-cap"></i>
+                                    </div>
+                                    <div className="activity-content">
+                                        <p className="activity-title">맞춤형 훈련 시작</p>
+                                        <p className="activity-time">1일 전</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="content-card">
+                            <h2>진행 중인 훈련</h2>
+                            <div className="training-list">
+                                <div className="training-item">
+                                    <div className="training-progress">
+                                        <div className="progress-bar">
+                                            <div className="progress-fill" style={{ width: '75%' }}></div>
+                                        </div>
+                                        <span className="progress-text">75%</span>
+                                    </div>
+                                    <p className="training-name">집중력 향상 훈련</p>
+                                    <p className="training-student">12명 참여 중</p>
+                                </div>
+                                <div className="training-item">
+                                    <div className="training-progress">
+                                        <div className="progress-bar">
+                                            <div className="progress-fill" style={{ width: '45%' }}></div>
+                                        </div>
+                                        <span className="progress-text">45%</span>
+                                    </div>
+                                    <p className="training-name">계획성 개발 훈련</p>
+                                    <p className="training-student">8명 참여 중</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // Students Section
+        const Students = () => {
+            const students = [
+                { id: 1, name: '김학생', email: 'student1@example.com', status: 'active', diagnosis: '완료', training: '진행중' },
+                { id: 2, name: '이학생', email: 'student2@example.com', status: 'active', diagnosis: '완료', training: '대기' },
+                { id: 3, name: '박학생', email: 'student3@example.com', status: 'inactive', diagnosis: '미완료', training: '-' },
+            ];
+
+            return (
+                <div className="content-section">
+                    <div className="content-header">
+                        <h1>학생 관리</h1>
+                        <div className="header-actions">
+                            <button className="btn btn-primary">
+                                <i className="fas fa-plus"></i> 학생 추가
+                            </button>
+                            <button className="btn btn-secondary">
+                                <i className="fas fa-download"></i> 내보내기
+                            </button>
+                        </div>
+                    </div>
+                    <div className="table-container">
+                        <table className="data-table">
+                            <thead>
+                                <tr>
+                                    <th>이름</th>
+                                    <th>이메일</th>
+                                    <th>상태</th>
+                                    <th>진단</th>
+                                    <th>훈련</th>
+                                    <th>작업</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {students.map((student) => (
+                                    <tr key={student.id}>
+                                        <td>{student.name}</td>
+                                        <td>{student.email}</td>
+                                        <td>
+                                            <span className={`status-badge ${student.status}`}>
+                                                {student.status === 'active' ? '활성' : '비활성'}
+                                            </span>
+                                        </td>
+                                        <td>{student.diagnosis}</td>
+                                        <td>{student.training}</td>
+                                        <td>
+                                            <div className="table-actions">
+                                                <button className="action-btn" title="상세보기">
+                                                    <i className="fas fa-eye"></i>
+                                                </button>
+                                                <button className="action-btn" title="편집">
+                                                    <i className="fas fa-edit"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            );
+        };
+
+        // Diagnosis Section
+        const Diagnosis = () => {
+            return (
+                <div className="content-section">
+                    <div className="content-header">
+                        <h1>학습 DNA 진단</h1>
+                        <p className="content-subtitle">학생들의 학습 습관을 정밀 진단합니다</p>
+                    </div>
+                    <div className="content-cards">
+                        <div className="content-card">
+                            <h2>진단 현황</h2>
+                            <p>학습 DNA 진단 기능이 여기에 표시됩니다.</p>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // Training Section
+        const Training = () => {
+            return (
+                <div className="content-section">
+                    <div className="content-header">
+                        <h1>맞춤형 훈련</h1>
+                        <p className="content-subtitle">개인별 맞춤형 학습 훈련 프로그램</p>
+                    </div>
+                    <div className="content-cards">
+                        <div className="content-card">
+                            <h2>훈련 프로그램</h2>
+                            <p>맞춤형 훈련 기능이 여기에 표시됩니다.</p>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // Analytics Section
+        const Analytics = () => {
+            return (
+                <div className="content-section">
+                    <div className="content-header">
+                        <h1>분석 리포트</h1>
+                        <p className="content-subtitle">데이터 기반 인사이트를 확인하세요</p>
+                    </div>
+                    <div className="content-cards">
+                        <div className="content-card">
+                            <h2>통계 분석</h2>
+                            <p>분석 리포트 기능이 여기에 표시됩니다.</p>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // Settings Section
+        const Settings = () => {
+            return (
+                <div className="content-section">
+                    <div className="content-header">
+                        <h1>설정</h1>
+                        <p className="content-subtitle">시스템 설정을 관리하세요</p>
+                    </div>
+                    <div className="content-cards">
+                        <div className="content-card">
+                            <h2>일반 설정</h2>
+                            <p>설정 기능이 여기에 표시됩니다.</p>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // Main App Component
+        const App = () => {
+            const [isCollapsed, setIsCollapsed] = useState(false);
+            const [currentSection, setCurrentSection] = useState('dashboard');
+            const [isLoading, setIsLoading] = useState(true);
+            const [user, setUser] = useState(null);
+
+            // 로그인 상태 확인
+            useEffect(() => {
+                if (typeof auth !== 'undefined' && auth) {
+                    auth.onAuthStateChanged((firebaseUser) => {
+                        if (!firebaseUser) {
+                            // 로그인되지 않은 경우 index.html로 리다이렉트
+                            window.location.href = 'index.html';
+                        } else {
+                            setUser(firebaseUser);
+                            setIsLoading(false);
+                        }
+                    });
+                } else {
+                    setIsLoading(false);
+                }
+            }, []);
+
+            const renderSection = () => {
+                switch (currentSection) {
+                    case 'dashboard':
+                        return <Dashboard />;
+                    case 'students':
+                        return <Students />;
+                    case 'diagnosis':
+                        return <Diagnosis />;
+                    case 'training':
+                        return <Training />;
+                    case 'analytics':
+                        return <Analytics />;
+                    case 'settings':
+                        return <Settings />;
+                    default:
+                        return <Dashboard />;
+                }
+            };
+
+            if (isLoading) {
+                return (
+                    <div className="loading-screen">
+                        <div className="loading-spinner">
+                            <i className="fas fa-spinner fa-spin"></i>
+                        </div>
+                        <p>로딩 중...</p>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="solution-app">
+                    <Sidebar
+                        isCollapsed={isCollapsed}
+                        onToggle={() => setIsCollapsed(!isCollapsed)}
+                        currentSection={currentSection}
+                        onSectionChange={setCurrentSection}
+                    />
+                    <main className="main-content">
+                        {renderSection()}
+                    </main>
+                </div>
+            );
+        };
+
+        // Render App
+        ReactDOM.render(<App />, document.getElementById('root'));
+    </script>
+</body>
+</html>
