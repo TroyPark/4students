@@ -192,9 +192,9 @@ https://your-domain.com/#contact   # Contact 섹션으로 직접 이동
 
 ## 📞 연락처
 
-- **Email**: contact@4students.com
-- **Phone**: 02-1234-5678
-- **Social Media**: Facebook, Instagram, Twitter, LinkedIn
+- **Email**: troywppark@gmail.com
+- **Phone**: 010-4037-0928
+- **Social Media**: 
 
 ## 📄 라이선스
 
