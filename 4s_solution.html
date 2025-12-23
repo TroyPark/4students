@@ -27,7 +27,7 @@
 
     <!-- Main App -->
     <script type="text/babel">
-        const { useState, useEffect } = React;
+        const { useState, useEffect, useRef } = React;
 
         // Sidebar Component
         const Sidebar = ({ isCollapsed, onToggle, currentSection, onSectionChange, userName }) => {
@@ -272,20 +272,666 @@
             );
         };
 
-        // Diagnosis Section
+        // Diagnosis Section (학습 성향 분석)
         const Diagnosis = () => {
+            const [users, setUsers] = useState([]);
+            const [showSidePanel, setShowSidePanel] = useState(false);
+            const [loading, setLoading] = useState(true);
+            const [currentUserId, setCurrentUserId] = useState(null);
+            const [formData, setFormData] = useState({
+                name: '',
+                phone: '',
+                school: '',
+                grade: ''
+            });
+            const [errors, setErrors] = useState({});
+            const [selectedUsers, setSelectedUsers] = useState([]); // 선택된 사용자 ID 배열
+            const sidePanelOpenRef = useRef(false); // 사이드 패널 상태를 추적하기 위한 ref
+            const tableContainerRef = useRef(null); // 테이블 컨테이너 참조
+            const scrollPositionRef = useRef(0); // 스크롤 위치 저장용 ref
+
+            // 사이드 패널 상태 변경 시 ref 업데이트
+            useEffect(() => {
+                sidePanelOpenRef.current = showSidePanel;
+            }, [showSidePanel]);
+
+            // Firebase 인증 상태 확인 및 사용자 목록 불러오기
+            useEffect(() => {
+                if (typeof auth !== 'undefined' && auth && typeof db !== 'undefined' && db) {
+                    const unsubscribe = auth.onAuthStateChanged(async (firebaseUser) => {
+                        if (firebaseUser) {
+                            setCurrentUserId(firebaseUser.uid);
+                            // Firestore에서 사용자 목록 불러오기
+                            try {
+                                // orderBy를 제거하고 클라이언트에서 정렬 (인덱스 문제 방지)
+                                const studentsRef = db.collection('students')
+                                    .where('userId', '==', firebaseUser.uid);
+                                
+                                console.log('Firestore 쿼리 시작 - userId:', firebaseUser.uid);
+                                
+                                const unsubscribeSnapshot = studentsRef.onSnapshot((snapshot) => {
+                                    console.log('Firestore 스냅샷 수신 - 문서 개수:', snapshot.size);
+                                    
+                                    // 사이드 패널이 열려있으면 업데이트 건너뛰기
+                                    // 하지만 ref는 클로저 문제로 최신 값을 참조하지 못할 수 있으므로
+                                    // 함수형 업데이트를 사용하여 안전하게 처리
+                                    setUsers(prevUsers => {
+                                        // 사이드 패널이 열려있으면 이전 상태 유지
+                                        if (sidePanelOpenRef.current) {
+                                            console.log('사이드 패널이 열려있어 업데이트 건너뜀');
+                                            return prevUsers;
+                                        }
+                                        
+                                        // 업데이트 전 스크롤 위치 저장 (삭제 후 복원을 위해)
+                                        if (tableContainerRef.current) {
+                                            scrollPositionRef.current = tableContainerRef.current.scrollTop || window.scrollY;
+                                        }
+                                        
+                                        // 사이드 패널이 닫혀있을 때만 업데이트
+                                        const studentsList = [];
+                                        snapshot.forEach((doc) => {
+                                            const data = doc.data();
+                                            console.log('문서 데이터:', doc.id, data);
+                                            studentsList.push({
+                                                id: doc.id,
+                                                number: studentsList.length + 1,
+                                                name: data.name || '',
+                                                phone: data.phone || '',
+                                                school: data.school || '',
+                                                grade: data.grade || '',
+                                                hasTestProfile: data.hasTestProfile || false,
+                                                analysisStatus: data.hasTestProfile ? '완료' : '미완료',
+                                                createdAt: data.createdAt
+                                            });
+                                        });
+                                        
+                                        // createdAt 기준으로 내림차순 정렬 (클라이언트에서)
+                                        studentsList.sort((a, b) => {
+                                            if (!a.createdAt || !b.createdAt) return 0;
+                                            const aTime = a.createdAt.toMillis ? a.createdAt.toMillis() : 0;
+                                            const bTime = b.createdAt.toMillis ? b.createdAt.toMillis() : 0;
+                                            return bTime - aTime;
+                                        });
+                                        
+                                        // 넘버 재정렬
+                                        studentsList.forEach((student, index) => {
+                                            student.number = index + 1;
+                                        });
+                                        
+                                        console.log('최종 학생 목록:', studentsList);
+                                        setLoading(false);
+                                        
+                                        // 리렌더링 후 스크롤 위치 복원
+                                        setTimeout(() => {
+                                            if (tableContainerRef.current) {
+                                                tableContainerRef.current.scrollTop = scrollPositionRef.current;
+                                            } else {
+                                                window.scrollTo(0, scrollPositionRef.current);
+                                            }
+                                        }, 50);
+                                        
+                                        return studentsList;
+                                    });
+                                }, (error) => {
+                                    console.error('사용자 목록 불러오기 실패:', error);
+                                    console.error('에러 상세:', error.code, error.message);
+                                    alert('사용자 목록을 불러오는 중 오류가 발생했습니다: ' + error.message);
+                                    setLoading(false);
+                                });
+                                
+                                return () => unsubscribeSnapshot();
+                            } catch (error) {
+                                console.error('Firestore 쿼리 오류:', error);
+                                setLoading(false);
+                            }
+                        } else {
+                            setCurrentUserId(null);
+                            setUsers([]);
+                            setLoading(false);
+                        }
+                    });
+                    
+                    return () => unsubscribe();
+                } else {
+                    setLoading(false);
+                }
+            }, []);
+
+            // 전화번호 포맷팅 함수
+            const formatPhoneNumber = (value) => {
+                const numbers = value.replace(/[^\d]/g, '');
+                
+                if (numbers.length <= 3) {
+                    return numbers;
+                } else if (numbers.length <= 7) {
+                    return numbers.slice(0, 3) + '-' + numbers.slice(3);
+                } else if (numbers.length <= 10) {
+                    if (numbers.startsWith('02')) {
+                        return numbers.slice(0, 2) + '-' + numbers.slice(2, 6) + '-' + numbers.slice(6);
+                    } else {
+                        return numbers.slice(0, 3) + '-' + numbers.slice(3, 6) + '-' + numbers.slice(6);
+                    }
+                } else {
+                    if (numbers.startsWith('010') || numbers.startsWith('011') || numbers.startsWith('016') || 
+                        numbers.startsWith('017') || numbers.startsWith('018') || numbers.startsWith('019')) {
+                        return numbers.slice(0, 3) + '-' + numbers.slice(3, 7) + '-' + numbers.slice(7, 11);
+                    } else if (numbers.startsWith('02')) {
+                        return numbers.slice(0, 2) + '-' + numbers.slice(2, 6) + '-' + numbers.slice(6, 10);
+                    } else {
+                        return numbers.slice(0, 3) + '-' + numbers.slice(3, 7) + '-' + numbers.slice(7, 11);
+                    }
+                }
+            };
+
+            // 입력 핸들러
+            const handleInputChange = (e) => {
+                const { name, value } = e.target;
+                setFormData(prev => ({
+                    ...prev,
+                    [name]: value
+                }));
+                if (errors[name]) {
+                    setErrors(prev => ({
+                        ...prev,
+                        [name]: ''
+                    }));
+                }
+            };
+
+            // 전화번호 입력 핸들러
+            const handlePhoneChange = (e) => {
+                const { name, value } = e.target;
+                const processedValue = formatPhoneNumber(value);
+                setFormData(prev => ({
+                    ...prev,
+                    [name]: processedValue
+                }));
+                if (errors[name]) {
+                    setErrors(prev => ({
+                        ...prev,
+                        [name]: ''
+                    }));
+                }
+            };
+
+            // 폼 제출 핸들러
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                const newErrors = {};
+
+                if (!formData.name.trim()) {
+                    newErrors.name = '이름을 입력해주세요.';
+                }
+                if (!formData.phone.trim()) {
+                    newErrors.phone = '연락처를 입력해주세요.';
+                }
+                if (!formData.school.trim()) {
+                    newErrors.school = '학교명을 입력해주세요.';
+                }
+                if (!formData.grade.trim()) {
+                    newErrors.grade = '학년을 선택해주세요.';
+                }
+
+                if (Object.keys(newErrors).length > 0) {
+                    setErrors(newErrors);
+                    return;
+                }
+
+                // Firebase 인증 확인
+                if (!currentUserId || (typeof auth !== 'undefined' && auth && !auth.currentUser)) {
+                    alert('로그인이 필요합니다.');
+                    return;
+                }
+
+                // Firestore에 새 사용자 저장
+                try {
+                    if (typeof db !== 'undefined' && db) {
+                        const studentData = {
+                            name: formData.name.trim(),
+                            phone: formData.phone.trim(),
+                            school: formData.school.trim(),
+                            grade: formData.grade.trim(),
+                            hasTestProfile: false,
+                            userId: currentUserId,
+                            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                        };
+
+                        await db.collection('students').add(studentData);
+                        
+                        // 성공 메시지
+                        alert('사용자가 성공적으로 등록되었습니다.');
+                        
+                        // 폼 초기화 및 사이드 패널 닫기
+                        setFormData({ name: '', phone: '', school: '', grade: '' });
+                        setErrors({});
+                        setShowSidePanel(false);
+                    } else {
+                        throw new Error('Firebase가 초기화되지 않았습니다.');
+                    }
+                } catch (error) {
+                    console.error('사용자 저장 실패:', error);
+                    alert('사용자 저장 중 오류가 발생했습니다: ' + error.message);
+                }
+            };
+
+            // 사용자 추가 사이드 패널
+            const AddUserSidePanel = () => {
+                if (!showSidePanel) {
+                    return null;
+                }
+                
+                // 사이드 패널 내부에서 사용할 로컬 상태 (재렌더링 방지)
+                const [localFormData, setLocalFormData] = useState(formData);
+                const nameInputRef = useRef(null);
+                
+                // 사이드 패널이 열릴 때 포커스 설정 및 로컬 상태 초기화
+                useEffect(() => {
+                    if (showSidePanel) {
+                        setLocalFormData(formData);
+                        if (nameInputRef.current) {
+                            setTimeout(() => {
+                                nameInputRef.current?.focus();
+                            }, 100);
+                        }
+                    }
+                }, [showSidePanel]);
+                
+                const handleLocalInputChange = (e) => {
+                    const { name, value } = e.target;
+                    const newData = {
+                        ...localFormData,
+                        [name]: value
+                    };
+                    setLocalFormData(newData);
+                    // 사이드 패널이 열려있는 동안은 부모 상태 업데이트하지 않음 (재렌더링 방지로 한글 입력 문제 해결)
+                    // setFormData(newData); // 제거: 부모 상태 업데이트 시 재렌더링되어 IME 상태 초기화됨
+                    if (errors[name]) {
+                        setErrors(prev => ({
+                            ...prev,
+                            [name]: ''
+                        }));
+                    }
+                };
+                
+                const handleLocalPhoneChange = (e) => {
+                    const { name, value } = e.target;
+                    const processedValue = formatPhoneNumber(value);
+                    const newData = {
+                        ...localFormData,
+                        [name]: processedValue
+                    };
+                    setLocalFormData(newData);
+                    // 사이드 패널이 열려있는 동안은 부모 상태 업데이트하지 않음 (재렌더링 방지)
+                    // setFormData(newData); // 제거: 부모 상태 업데이트 시 재렌더링되어 포커스 이동
+                    if (errors[name]) {
+                        setErrors(prev => ({
+                            ...prev,
+                            [name]: ''
+                        }));
+                    }
+                };
+                
+                const handleLocalSubmit = async (e) => {
+                    e.preventDefault();
+                    
+                    // 로컬 상태로 유효성 검사
+                    const newErrors = {};
+                    if (!localFormData.name.trim()) {
+                        newErrors.name = '이름을 입력해주세요.';
+                    }
+                    if (!localFormData.phone.trim()) {
+                        newErrors.phone = '연락처를 입력해주세요.';
+                    }
+                    if (!localFormData.school.trim()) {
+                        newErrors.school = '학교명을 입력해주세요.';
+                    }
+                    if (!localFormData.grade.trim()) {
+                        newErrors.grade = '학년을 선택해주세요.';
+                    }
+
+                    if (Object.keys(newErrors).length > 0) {
+                        setErrors(newErrors);
+                        return;
+                    }
+
+                    // Firebase 인증 확인
+                    if (!currentUserId || (typeof auth !== 'undefined' && auth && !auth.currentUser)) {
+                        alert('로그인이 필요합니다.');
+                        return;
+                    }
+
+                    // Firestore에 새 사용자 저장
+                    try {
+                        if (typeof db !== 'undefined' && db) {
+                            const studentData = {
+                                name: localFormData.name.trim(),
+                                phone: localFormData.phone.trim(),
+                                school: localFormData.school.trim(),
+                                grade: localFormData.grade.trim(),
+                                hasTestProfile: false,
+                                userId: currentUserId,
+                                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                            };
+
+                            await db.collection('students').add(studentData);
+                            
+                            // 폼 초기화
+                            const emptyData = { name: '', phone: '', school: '', grade: '' };
+                            setFormData(emptyData);
+                            setLocalFormData(emptyData);
+                            setErrors({});
+                            
+                            // 사이드 패널 닫기 (ref도 함께 업데이트)
+                            setShowSidePanel(false);
+                            sidePanelOpenRef.current = false;
+                            
+                            // 성공 메시지 (패널이 닫힌 후 표시)
+                            setTimeout(() => {
+                                alert('사용자가 성공적으로 등록되었습니다.');
+                            }, 100);
+                        } else {
+                            throw new Error('Firebase가 초기화되지 않았습니다.');
+                        }
+                    } catch (error) {
+                        console.error('사용자 저장 실패:', error);
+                        alert('사용자 저장 중 오류가 발생했습니다: ' + error.message);
+                    }
+                };
+                
+                return (
+                    <>
+                        {/* 오버레이 (배경 어둡게) */}
+                        <div 
+                            className="side-panel-overlay show"
+                            onClick={() => {
+                                setShowSidePanel(false);
+                                sidePanelOpenRef.current = false;
+                            }}
+                        />
+                        
+                        {/* 사이드 패널 */}
+                        <div className="side-panel open">
+                            <div className="side-panel-header">
+                                <h2>사용자 추가</h2>
+                                <button 
+                                    type="button"
+                                    className="side-panel-close-btn" 
+                                    onClick={() => {
+                                        setShowSidePanel(false);
+                                        sidePanelOpenRef.current = false;
+                                    }}
+                                >
+                                    <i className="fas fa-times"></i>
+                                </button>
+                            </div>
+                            <form className="side-panel-form" onSubmit={handleLocalSubmit} noValidate>
+                                <div className="form-group">
+                                    <label htmlFor="name">
+                                        이름 <span className="required">*</span>
+                                    </label>
+                                    <input
+                                        ref={nameInputRef}
+                                        type="text"
+                                        id="name"
+                                        name="name"
+                                        value={localFormData.name}
+                                        onChange={handleLocalInputChange}
+                                        placeholder="이름을 입력하세요"
+                                        className={errors.name ? 'error' : ''}
+                                        autoComplete="off"
+                                    />
+                                    {errors.name && <span className="error-message">{errors.name}</span>}
+                                </div>
+                                <div className="form-group">
+                                    <label htmlFor="phone">
+                                        연락처 <span className="required">*</span>
+                                    </label>
+                                    <input
+                                        type="tel"
+                                        id="phone"
+                                        name="phone"
+                                        value={localFormData.phone}
+                                        onChange={handleLocalPhoneChange}
+                                        placeholder="010-1234-5678"
+                                        className={errors.phone ? 'error' : ''}
+                                        autoComplete="off"
+                                        ref={(input) => {
+                                            // 포커스 유지 (재렌더링 시에도 포커스 유지)
+                                            if (input && document.activeElement === input) {
+                                                // 이미 포커스가 있으면 유지
+                                            }
+                                        }}
+                                    />
+                                    {errors.phone && <span className="error-message">{errors.phone}</span>}
+                                </div>
+                                <div className="form-group">
+                                    <label htmlFor="school">
+                                        학교명 <span className="required">*</span>
+                                    </label>
+                                    <input
+                                        type="text"
+                                        id="school"
+                                        name="school"
+                                        value={localFormData.school}
+                                        onChange={handleLocalInputChange}
+                                        placeholder="학교명을 입력하세요"
+                                        className={errors.school ? 'error' : ''}
+                                        autoComplete="off"
+                                    />
+                                    {errors.school && <span className="error-message">{errors.school}</span>}
+                                </div>
+                                <div className="form-group">
+                                    <label htmlFor="grade">
+                                        학년 <span className="required">*</span>
+                                    </label>
+                                    <select
+                                        id="grade"
+                                        name="grade"
+                                        value={localFormData.grade}
+                                        onChange={handleLocalInputChange}
+                                        className={errors.grade ? 'error' : ''}
+                                    >
+                                        <option value="">학년을 선택하세요</option>
+                                        <option value="1">1학년</option>
+                                        <option value="2">2학년</option>
+                                        <option value="3">3학년</option>
+                                        <option value="4">4학년</option>
+                                        <option value="5">5학년</option>
+                                        <option value="6">6학년</option>
+                                    </select>
+                                    {errors.grade && <span className="error-message">{errors.grade}</span>}
+                                </div>
+                                <div className="side-panel-actions">
+                                    <button 
+                                        type="button" 
+                                        className="btn btn-secondary" 
+                                        onClick={() => {
+                                            setShowSidePanel(false);
+                                            sidePanelOpenRef.current = false;
+                                        }}
+                                    >
+                                        취소
+                                    </button>
+                                    <button type="submit" className="btn btn-primary">
+                                        등록
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </>
+                );
+            };
+
+            const handleStartTest = (studentId, studentName) => {
+                // 테스트 페이지로 이동 (나중에 구현)
+                // window.location.href = `test.html?studentId=${studentId}`;
+                alert(`${studentName}님의 테스트를 시작합니다.\n테스트 페이지 구현 후 연결됩니다.`);
+            };
+
+            const handleViewAnalysis = async (studentId) => {
+                // 분석 내용 확인 페이지로 이동 (나중에 구현)
+                // window.location.href = `analysis.html?studentId=${studentId}`;
+                alert(`학생 ID ${studentId}의 분석 내용을 확인합니다.\n분석 페이지 구현 후 연결됩니다.`);
+            };
+
+            // 체크박스 선택/해제 핸들러
+            const handleSelectUser = (userId) => {
+                setSelectedUsers(prev => {
+                    if (prev.includes(userId)) {
+                        return prev.filter(id => id !== userId);
+                    } else {
+                        return [...prev, userId];
+                    }
+                });
+            };
+
+            // 전체 선택/해제 핸들러
+            const handleSelectAll = (e) => {
+                if (e.target.checked) {
+                    setSelectedUsers(users.map(user => user.id));
+                } else {
+                    setSelectedUsers([]);
+                }
+            };
+
+            // 선택된 사용자 삭제 핸들러
+            const handleDeleteSelected = async () => {
+                if (selectedUsers.length === 0) {
+                    alert('삭제할 사용자를 선택해주세요.');
+                    return;
+                }
+
+                if (!confirm(`선택한 ${selectedUsers.length}명의 사용자를 삭제하시겠습니까?`)) {
+                    return;
+                }
+
+                try {
+                    if (typeof db !== 'undefined' && db) {
+                        // 삭제 전 현재 스크롤 위치 저장
+                        if (tableContainerRef.current) {
+                            scrollPositionRef.current = tableContainerRef.current.scrollTop || window.scrollY;
+                        }
+                        
+                        // 선택된 모든 사용자 삭제
+                        const deletePromises = selectedUsers.map(userId => 
+                            db.collection('students').doc(userId).delete()
+                        );
+                        await Promise.all(deletePromises);
+                        
+                        // 선택 상태 초기화
+                        setSelectedUsers([]);
+                        
+                        // alert는 onSnapshot 업데이트 후에 표시되도록 약간의 지연
+                        setTimeout(() => {
+                            alert('선택한 사용자가 성공적으로 삭제되었습니다.');
+                        }, 200);
+                    } else {
+                        throw new Error('Firebase가 초기화되지 않았습니다.');
+                    }
+                } catch (error) {
+                    console.error('사용자 삭제 실패:', error);
+                    alert('사용자 삭제 중 오류가 발생했습니다: ' + error.message);
+                }
+            };
+
+            // 로딩 상태는 App 컴포넌트에서 처리하므로 여기서는 제거
+
             return (
                 <div className="content-section">
                     <div className="content-header">
-                        <h1>학습 DNA 진단</h1>
-                        <p className="content-subtitle">학생들의 학습 습관을 정밀 진단합니다</p>
-                    </div>
-                    <div className="content-cards">
-                        <div className="content-card">
-                            <h2>진단 현황</h2>
-                            <p>학습 DNA 진단 기능이 여기에 표시됩니다.</p>
+                        <div>
+                            <h1>학습 성향 분석</h1>
+                            <p className="content-subtitle">학생들의 학습 습관을 정밀 진단합니다</p>
                         </div>
                     </div>
+                    <div className="button-bar">
+                        <button 
+                            className="btn btn-danger" 
+                            onClick={handleDeleteSelected}
+                            disabled={selectedUsers.length === 0}
+                        >
+                            <i className="fas fa-trash"></i> 삭제 ({selectedUsers.length})
+                        </button>
+                        <button 
+                            className="btn btn-primary" 
+                            onClick={() => setShowSidePanel(true)}
+                            disabled={!currentUserId}
+                        >
+                            <i className="fas fa-plus"></i> 사용자 추가
+                        </button>
+                    </div>
+                    <div className="table-container" ref={tableContainerRef}>
+                        <table className="data-table">
+                            <thead>
+                                <tr>
+                                    <th>
+                                        <input 
+                                            type="checkbox" 
+                                            checked={users.length > 0 && selectedUsers.length === users.length}
+                                            onChange={handleSelectAll}
+                                        />
+                                    </th>
+                                    <th>넘버</th>
+                                    <th>이름</th>
+                                    <th>연락처</th>
+                                    <th>학교명</th>
+                                    <th>학년</th>
+                                    <th>분석 현황</th>
+                                    <th>테스트하기</th>
+                                    <th>분석 내용 확인</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {users.length === 0 ? (
+                                    <tr>
+                                        <td colSpan="9" className="empty-state">
+                                            등록된 사용자가 없습니다. "사용자 추가" 버튼을 클릭하여 사용자를 추가하세요.
+                                        </td>
+                                    </tr>
+                                ) : (
+                                    users.map((user) => (
+                                        <tr key={user.id}>
+                                            <td>
+                                                <input 
+                                                    type="checkbox" 
+                                                    checked={selectedUsers.includes(user.id)}
+                                                    onChange={() => handleSelectUser(user.id)}
+                                                />
+                                            </td>
+                                            <td>{user.number}</td>
+                                            <td>{user.name}</td>
+                                            <td>{user.phone}</td>
+                                            <td>{user.school}</td>
+                                            <td>{user.grade}학년</td>
+                                            <td>
+                                                <span className={`status-badge ${user.hasTestProfile ? 'completed' : 'pending'}`}>
+                                                    {user.hasTestProfile ? '완료' : '미완료'}
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <button 
+                                                    className="btn btn-small btn-primary"
+                                                    onClick={() => handleStartTest(user.id, user.name)}
+                                                >
+                                                    테스트하기
+                                                </button>
+                                            </td>
+                                            <td>
+                                                <button 
+                                                    className="btn btn-small btn-secondary"
+                                                    onClick={() => handleViewAnalysis(user.id)}
+                                                    disabled={!user.hasTestProfile}
+                                                >
+                                                    분석 내용 확인
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                    <AddUserSidePanel />
                 </div>
             );
         };
