@@ -30,13 +30,13 @@
         const { useState, useEffect } = React;
 
         // Sidebar Component
-        const Sidebar = ({ isCollapsed, onToggle, currentSection, onSectionChange }) => {
+        const Sidebar = ({ isCollapsed, onToggle, currentSection, onSectionChange, userName }) => {
             const menuItems = [
                 { id: 'dashboard', icon: 'fa-home', label: '대시보드', badge: null },
-                { id: 'students', icon: 'fa-users', label: '학생 관리', badge: '12' },
-                { id: 'diagnosis', icon: 'fa-dna', label: '학습 DNA 진단', badge: null },
+                { id: 'diagnosis', icon: 'fa-dna', label: '학습 성향 분석', badge: null },
                 { id: 'training', icon: 'fa-graduation-cap', label: '맞춤형 훈련', badge: '6' },
                 { id: 'analytics', icon: 'fa-chart-line', label: '분석 리포트', badge: null },
+                { id: 'subscription', icon: 'fa-credit-card', label: '구독 및 결제', badge: null },
                 { id: 'settings', icon: 'fa-cog', label: '설정', badge: null },
             ];
 
@@ -46,7 +46,9 @@
                         {!isCollapsed && (
                             <div className="sidebar-logo">
                                 <img src="images/logo.png" alt="4students" />
-                                <span className="sidebar-title">4students</span>
+                                <span className="sidebar-title">
+                                    {userName ? `안녕하세요. ${userName}님` : '4students'}
+                                </span>
                             </div>
                         )}
                         <button className="sidebar-toggle" onClick={onToggle}>
@@ -324,6 +326,39 @@
             );
         };
 
+        // Subscription Section
+        const Subscription = () => {
+            return (
+                <div className="content-section">
+                    <div className="content-header">
+                        <h1>구독 및 결제</h1>
+                        <p className="content-subtitle">구독 플랜을 관리하고 결제 내역을 확인하세요</p>
+                    </div>
+                    <div className="content-cards">
+                        <div className="content-card">
+                            <h2>현재 구독 플랜</h2>
+                            <div className="subscription-plan">
+                                <div className="plan-header">
+                                    <h3>프리미엄 플랜</h3>
+                                    <span className="plan-badge">활성</span>
+                                </div>
+                                <div className="plan-details">
+                                    <p>다음 결제일: 2024년 2월 15일</p>
+                                    <p>월 구독료: ₩29,000</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="content-card">
+                            <h2>결제 내역</h2>
+                            <div className="payment-history">
+                                <p>결제 내역 기능이 여기에 표시됩니다.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
         // Settings Section
         const Settings = () => {
             return (
@@ -348,16 +383,48 @@
             const [currentSection, setCurrentSection] = useState('dashboard');
             const [isLoading, setIsLoading] = useState(true);
             const [user, setUser] = useState(null);
+            const [userName, setUserName] = useState('');
 
-            // 로그인 상태 확인
+            // 로그인 상태 확인 및 사용자 정보 가져오기
             useEffect(() => {
                 if (typeof auth !== 'undefined' && auth) {
-                    auth.onAuthStateChanged((firebaseUser) => {
+                    auth.onAuthStateChanged(async (firebaseUser) => {
                         if (!firebaseUser) {
                             // 로그인되지 않은 경우 index.html로 리다이렉트
                             window.location.href = 'index.html';
                         } else {
                             setUser(firebaseUser);
+                            
+                            // Firestore에서 사용자 이름 가져오기
+                            try {
+                                if (typeof db !== 'undefined' && db) {
+                                    const userDoc = await db.collection('users').doc(firebaseUser.uid).get();
+                                    if (userDoc.exists) {
+                                        const userData = userDoc.data();
+                                        if (userData.name) {
+                                            setUserName(userData.name);
+                                        } else {
+                                            // 이름이 없으면 이메일에서 이름 추출
+                                            const emailName = firebaseUser.email.split('@')[0];
+                                            setUserName(emailName);
+                                        }
+                                    } else {
+                                        // Firestore에 데이터가 없으면 이메일에서 이름 추출
+                                        const emailName = firebaseUser.email.split('@')[0];
+                                        setUserName(emailName);
+                                    }
+                                } else {
+                                    // db가 없으면 이메일에서 이름 추출
+                                    const emailName = firebaseUser.email.split('@')[0];
+                                    setUserName(emailName);
+                                }
+                            } catch (error) {
+                                console.error('사용자 정보 가져오기 오류:', error);
+                                // 오류 발생 시 이메일에서 이름 추출
+                                const emailName = firebaseUser.email.split('@')[0];
+                                setUserName(emailName);
+                            }
+                            
                             setIsLoading(false);
                         }
                     });
@@ -367,21 +434,24 @@
             }, []);
 
             const renderSection = () => {
+                // 섹션 전환을 위한 key prop 추가 (React가 컴포넌트를 재생성하여 애니메이션 트리거)
+                const sectionKey = currentSection;
+                
                 switch (currentSection) {
                     case 'dashboard':
-                        return <Dashboard />;
-                    case 'students':
-                        return <Students />;
+                        return <Dashboard key={sectionKey} />;
                     case 'diagnosis':
-                        return <Diagnosis />;
+                        return <Diagnosis key={sectionKey} />;
                     case 'training':
-                        return <Training />;
+                        return <Training key={sectionKey} />;
                     case 'analytics':
-                        return <Analytics />;
+                        return <Analytics key={sectionKey} />;
+                    case 'subscription':
+                        return <Subscription key={sectionKey} />;
                     case 'settings':
-                        return <Settings />;
+                        return <Settings key={sectionKey} />;
                     default:
-                        return <Dashboard />;
+                        return <Dashboard key={sectionKey} />;
                 }
             };
 
@@ -403,6 +473,7 @@
                         onToggle={() => setIsCollapsed(!isCollapsed)}
                         currentSection={currentSection}
                         onSectionChange={setCurrentSection}
+                        userName={userName}
                     />
                     <main className="main-content">
                         {renderSection()}
@@ -416,3 +487,4 @@
     </script>
 </body>
 </html>
+
