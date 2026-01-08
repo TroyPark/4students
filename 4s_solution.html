@@ -1,0 +1,1191 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Solution - 4students</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/solution.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+</head>
+<body>
+    <div id="root"></div>
+
+    <!-- Supabase SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <!-- Supabase Config -->
+    <script src="js/supabase-config.js"></script>
+
+    <!-- React & Babel -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <!-- Main App -->
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+        
+        // Supabase 클라이언트 참조
+        const supabase = window.supabase;
+
+        // Sidebar Component
+        const Sidebar = ({ isCollapsed, onToggle, currentSection, onSectionChange, userName }) => {
+            const menuItems = [
+                { id: 'dashboard', icon: 'fa-home', label: '대시보드', badge: null },
+                { id: 'diagnosis', icon: 'fa-dna', label: '학습 성향 분석', badge: null },
+                { id: 'training', icon: 'fa-graduation-cap', label: '맞춤형 훈련', badge: '6' },
+                { id: 'analytics', icon: 'fa-chart-line', label: '분석 리포트', badge: null },
+                { id: 'subscription', icon: 'fa-credit-card', label: '구독 및 결제', badge: null },
+                { id: 'settings', icon: 'fa-cog', label: '설정', badge: null },
+            ];
+
+            return (
+                <aside className={`sidebar ${isCollapsed ? 'collapsed' : ''}`}>
+                    <div className="sidebar-header">
+                        {!isCollapsed && (
+                            <div className="sidebar-logo">
+                                <img src="images/logo.png" alt="4students" />
+                                <span className="sidebar-title">
+                                    {userName ? `안녕하세요. ${userName}님` : '4students'}
+                                </span>
+                            </div>
+                        )}
+                        <button className="sidebar-toggle" onClick={onToggle}>
+                            <i className={`fas ${isCollapsed ? 'fa-chevron-right' : 'fa-chevron-left'}`}></i>
+                        </button>
+                    </div>
+                    <nav className="sidebar-nav">
+                        <ul className="sidebar-menu">
+                            {menuItems.map((item) => (
+                                <li key={item.id}>
+                                    <a
+                                        href="#"
+                                        className={`sidebar-menu-item ${currentSection === item.id ? 'active' : ''}`}
+                                        onClick={(e) => {
+                                            e.preventDefault();
+                                            onSectionChange(item.id);
+                                        }}
+                                        title={isCollapsed ? item.label : ''}
+                                    >
+                                        <i className={`fas ${item.icon}`}></i>
+                                        {!isCollapsed && (
+                                            <>
+                                                <span>{item.label}</span>
+                                                {item.badge && <span className="menu-badge">{item.badge}</span>}
+                                            </>
+                                        )}
+                                    </a>
+                                </li>
+                            ))}
+                        </ul>
+                    </nav>
+                    <div className="sidebar-footer">
+                        <button className="logout-btn-sidebar" onClick={async () => {
+                            if (typeof auth !== 'undefined' && auth) {
+                                try {
+                                    await auth.signOut();
+                                    window.location.href = 'index.html';
+                                } catch (error) {
+                                    console.error('로그아웃 오류:', error);
+                                }
+                            }
+                        }}>
+                            <i className="fas fa-sign-out-alt"></i>
+                            {!isCollapsed && <span>로그아웃</span>}
+                        </button>
+                    </div>
+                </aside>
+            );
+        };
+
+        // Dashboard Section
+        const Dashboard = () => {
+            return (
+                <div className="content-section">
+                    <div className="content-header">
+                        <h1>대시보드</h1>
+                        <p className="content-subtitle">전체 현황을 한눈에 확인하세요</p>
+                    </div>
+                    <div className="stats-grid">
+                        <div className="stat-card">
+                            <div className="stat-icon">
+                                <i className="fas fa-users"></i>
+                            </div>
+                            <div className="stat-info">
+                                <div className="stat-value">1,234</div>
+                                <div className="stat-label">활성 학생</div>
+                            </div>
+                        </div>
+                        <div className="stat-card">
+                            <div className="stat-icon">
+                                <i className="fas fa-clipboard-check"></i>
+                            </div>
+                            <div className="stat-info">
+                                <div className="stat-value">856</div>
+                                <div className="stat-label">진단 완료</div>
+                            </div>
+                        </div>
+                        <div className="stat-card">
+                            <div className="stat-icon">
+                                <i className="fas fa-chart-line"></i>
+                            </div>
+                            <div className="stat-info">
+                                <div className="stat-value">92%</div>
+                                <div className="stat-label">평균 만족도</div>
+                            </div>
+                        </div>
+                        <div className="stat-card">
+                            <div className="stat-icon">
+                                <i className="fas fa-calendar-check"></i>
+                            </div>
+                            <div className="stat-info">
+                                <div className="stat-value">48</div>
+                                <div className="stat-label">이번 주 신규</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="content-cards">
+                        <div className="content-card">
+                            <h2>최근 활동</h2>
+                            <div className="activity-list">
+                                <div className="activity-item">
+                                    <div className="activity-icon">
+                                        <i className="fas fa-user-plus"></i>
+                                    </div>
+                                    <div className="activity-content">
+                                        <p className="activity-title">새로운 학생 등록</p>
+                                        <p className="activity-time">2시간 전</p>
+                                    </div>
+                                </div>
+                                <div className="activity-item">
+                                    <div className="activity-icon">
+                                        <i className="fas fa-dna"></i>
+                                    </div>
+                                    <div className="activity-content">
+                                        <p className="activity-title">학습 DNA 진단 완료</p>
+                                        <p className="activity-time">5시간 전</p>
+                                    </div>
+                                </div>
+                                <div className="activity-item">
+                                    <div className="activity-icon">
+                                        <i className="fas fa-graduation-cap"></i>
+                                    </div>
+                                    <div className="activity-content">
+                                        <p className="activity-title">맞춤형 훈련 시작</p>
+                                        <p className="activity-time">1일 전</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="content-card">
+                            <h2>진행 중인 훈련</h2>
+                            <div className="training-list">
+                                <div className="training-item">
+                                    <div className="training-progress">
+                                        <div className="progress-bar">
+                                            <div className="progress-fill" style={{ width: '75%' }}></div>
+                                        </div>
+                                        <span className="progress-text">75%</span>
+                                    </div>
+                                    <p className="training-name">집중력 향상 훈련</p>
+                                    <p className="training-student">12명 참여 중</p>
+                                </div>
+                                <div className="training-item">
+                                    <div className="training-progress">
+                                        <div className="progress-bar">
+                                            <div className="progress-fill" style={{ width: '45%' }}></div>
+                                        </div>
+                                        <span className="progress-text">45%</span>
+                                    </div>
+                                    <p className="training-name">계획성 개발 훈련</p>
+                                    <p className="training-student">8명 참여 중</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // Students Section
+        const Students = () => {
+            const students = [
+                { id: 1, name: '김학생', email: 'student1@example.com', status: 'active', diagnosis: '완료', training: '진행중' },
+                { id: 2, name: '이학생', email: 'student2@example.com', status: 'active', diagnosis: '완료', training: '대기' },
+                { id: 3, name: '박학생', email: 'student3@example.com', status: 'inactive', diagnosis: '미완료', training: '-' },
+            ];
+
+            return (
+                <div className="content-section">
+                    <div className="content-header">
+                        <h1>학생 관리</h1>
+                        <div className="header-actions">
+                            <button className="btn btn-primary">
+                                <i className="fas fa-plus"></i> 학생 추가
+                            </button>
+                            <button className="btn btn-secondary">
+                                <i className="fas fa-download"></i> 내보내기
+                            </button>
+                        </div>
+                    </div>
+                    <div className="table-container">
+                        <table className="data-table">
+                            <thead>
+                                <tr>
+                                    <th>이름</th>
+                                    <th>이메일</th>
+                                    <th>상태</th>
+                                    <th>진단</th>
+                                    <th>훈련</th>
+                                    <th>작업</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {students.map((student) => (
+                                    <tr key={student.id}>
+                                        <td>{student.name}</td>
+                                        <td>{student.email}</td>
+                                        <td>
+                                            <span className={`status-badge ${student.status}`}>
+                                                {student.status === 'active' ? '활성' : '비활성'}
+                                            </span>
+                                        </td>
+                                        <td>{student.diagnosis}</td>
+                                        <td>{student.training}</td>
+                                        <td>
+                                            <div className="table-actions">
+                                                <button className="action-btn" title="상세보기">
+                                                    <i className="fas fa-eye"></i>
+                                                </button>
+                                                <button className="action-btn" title="편집">
+                                                    <i className="fas fa-edit"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            );
+        };
+
+        // Diagnosis Section (학습 성향 분석)
+        const Diagnosis = () => {
+            const [users, setUsers] = useState([]);
+            const [showSidePanel, setShowSidePanel] = useState(false);
+            const [loading, setLoading] = useState(true);
+            const [currentUserId, setCurrentUserId] = useState(null);
+            const [formData, setFormData] = useState({
+                name: '',
+                phone: '',
+                school: '',
+                grade: ''
+            });
+            const [errors, setErrors] = useState({});
+            const [selectedUsers, setSelectedUsers] = useState([]); // 선택된 사용자 ID 배열
+            const sidePanelOpenRef = useRef(false); // 사이드 패널 상태를 추적하기 위한 ref
+            const tableContainerRef = useRef(null); // 테이블 컨테이너 참조
+            const scrollPositionRef = useRef(0); // 스크롤 위치 저장용 ref
+
+            // 사이드 패널 상태 변경 시 ref 업데이트
+            useEffect(() => {
+                sidePanelOpenRef.current = showSidePanel;
+            }, [showSidePanel]);
+
+            // Supabase 인증 상태 확인 및 사용자 목록 불러오기
+            useEffect(() => {
+                if (typeof supabase !== 'undefined' && supabase) {
+                    let subscription = null;
+                    
+                    // 현재 세션 확인
+                    const checkSession = async () => {
+                        const { data: { session } } = await supabase.auth.getSession();
+                        if (session) {
+                            setCurrentUserId(session.user.id);
+                            
+                            // Supabase에서 학생 목록 불러오기
+                            try {
+                                console.log('Supabase 쿼리 시작 - userId:', session.user.id);
+                                
+                                // 초기 데이터 로드
+                                const { data: students, error } = await supabase
+                                    .from('students')
+                                    .select('*')
+                                    .eq('user_id', session.user.id)
+                                    .order('created_at', { ascending: false });
+                                
+                                if (error) throw error;
+                                
+                                // 데이터 변환
+                                const studentsList = (students || []).map((student, index) => ({
+                                    id: student.id,
+                                    number: index + 1,
+                                    name: student.name || '',
+                                    phone: student.phone || '',
+                                    school: student.school || '',
+                                    grade: student.grade || '',
+                                    hasTestProfile: student.has_test_profile || false,
+                                    analysisStatus: student.has_test_profile ? '완료' : '미완료',
+                                    createdAt: student.created_at
+                                }));
+                                
+                                console.log('최종 학생 목록:', studentsList);
+                                setUsers(studentsList);
+                                setLoading(false);
+                                
+                                // 실시간 구독 설정
+                                subscription = supabase
+                                    .channel('students_changes')
+                                    .on('postgres_changes', 
+                                        { 
+                                            event: '*', 
+                                            schema: 'public', 
+                                            table: 'students',
+                                            filter: `user_id=eq.${session.user.id}`
+                                        }, 
+                                        async (payload) => {
+                                            console.log('Supabase 실시간 변경:', payload);
+                                            
+                                            // 데이터 새로고침
+                                            const { data: updatedStudents, error: refreshError } = await supabase
+                                                .from('students')
+                                                .select('*')
+                                                .eq('user_id', session.user.id)
+                                                .order('created_at', { ascending: false });
+                                            
+                                            if (!refreshError && updatedStudents) {
+                                                setUsers(prevUsers => {
+                                                    // 사이드 패널이 열려있으면 이전 상태 유지
+                                                    if (sidePanelOpenRef.current) {
+                                                        console.log('사이드 패널이 열려있어 업데이트 건너뜀');
+                                                        return prevUsers;
+                                                    }
+                                                    
+                                                    // 업데이트 전 스크롤 위치 저장
+                                                    if (tableContainerRef.current) {
+                                                        scrollPositionRef.current = tableContainerRef.current.scrollTop || window.scrollY;
+                                                    }
+                                                    
+                                                    const newList = updatedStudents.map((student, index) => ({
+                                                        id: student.id,
+                                                        number: index + 1,
+                                                        name: student.name || '',
+                                                        phone: student.phone || '',
+                                                        school: student.school || '',
+                                                        grade: student.grade || '',
+                                                        hasTestProfile: student.has_test_profile || false,
+                                                        analysisStatus: student.has_test_profile ? '완료' : '미완료',
+                                                        createdAt: student.created_at
+                                                    }));
+                                                    
+                                                    // 리렌더링 후 스크롤 위치 복원
+                                                    setTimeout(() => {
+                                                        if (tableContainerRef.current) {
+                                                            tableContainerRef.current.scrollTop = scrollPositionRef.current;
+                                                        } else {
+                                                            window.scrollTo(0, scrollPositionRef.current);
+                                                        }
+                                                    }, 50);
+                                                    
+                                                    return newList;
+                                                });
+                                            }
+                                        })
+                                    .subscribe();
+                                
+                            } catch (error) {
+                                console.error('Supabase 쿼리 오류:', error);
+                                setLoading(false);
+                            }
+                        } else {
+                            setCurrentUserId(null);
+                            setUsers([]);
+                            setLoading(false);
+                        }
+                    };
+                    
+                    checkSession();
+                    
+                    // 인증 상태 변경 감지
+                    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+                        if (session) {
+                            checkSession();
+                        } else {
+                            setCurrentUserId(null);
+                            setUsers([]);
+                            setLoading(false);
+                        }
+                    });
+                    
+                    return () => {
+                        if (subscription) {
+                            subscription.unsubscribe();
+                        }
+                        if (authListener) {
+                            authListener.subscription.unsubscribe();
+                        }
+                    };
+                } else {
+                    setLoading(false);
+                }
+            }, []);
+
+            // 전화번호 포맷팅 함수
+            const formatPhoneNumber = (value) => {
+                const numbers = value.replace(/[^\d]/g, '');
+                
+                if (numbers.length <= 3) {
+                    return numbers;
+                } else if (numbers.length <= 7) {
+                    return numbers.slice(0, 3) + '-' + numbers.slice(3);
+                } else if (numbers.length <= 10) {
+                    if (numbers.startsWith('02')) {
+                        return numbers.slice(0, 2) + '-' + numbers.slice(2, 6) + '-' + numbers.slice(6);
+                    } else {
+                        return numbers.slice(0, 3) + '-' + numbers.slice(3, 6) + '-' + numbers.slice(6);
+                    }
+                } else {
+                    if (numbers.startsWith('010') || numbers.startsWith('011') || numbers.startsWith('016') || 
+                        numbers.startsWith('017') || numbers.startsWith('018') || numbers.startsWith('019')) {
+                        return numbers.slice(0, 3) + '-' + numbers.slice(3, 7) + '-' + numbers.slice(7, 11);
+                    } else if (numbers.startsWith('02')) {
+                        return numbers.slice(0, 2) + '-' + numbers.slice(2, 6) + '-' + numbers.slice(6, 10);
+                    } else {
+                        return numbers.slice(0, 3) + '-' + numbers.slice(3, 7) + '-' + numbers.slice(7, 11);
+                    }
+                }
+            };
+
+            // 입력 핸들러
+            const handleInputChange = (e) => {
+                const { name, value } = e.target;
+                setFormData(prev => ({
+                    ...prev,
+                    [name]: value
+                }));
+                if (errors[name]) {
+                    setErrors(prev => ({
+                        ...prev,
+                        [name]: ''
+                    }));
+                }
+            };
+
+            // 전화번호 입력 핸들러
+            const handlePhoneChange = (e) => {
+                const { name, value } = e.target;
+                const processedValue = formatPhoneNumber(value);
+                setFormData(prev => ({
+                    ...prev,
+                    [name]: processedValue
+                }));
+                if (errors[name]) {
+                    setErrors(prev => ({
+                        ...prev,
+                        [name]: ''
+                    }));
+                }
+            };
+
+            // 폼 제출 핸들러
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                const newErrors = {};
+
+                if (!formData.name.trim()) {
+                    newErrors.name = '이름을 입력해주세요.';
+                }
+                if (!formData.phone.trim()) {
+                    newErrors.phone = '연락처를 입력해주세요.';
+                }
+                if (!formData.school.trim()) {
+                    newErrors.school = '학교명을 입력해주세요.';
+                }
+                if (!formData.grade.trim()) {
+                    newErrors.grade = '학년을 선택해주세요.';
+                }
+
+                if (Object.keys(newErrors).length > 0) {
+                    setErrors(newErrors);
+                    return;
+                }
+
+                // Supabase 인증 확인
+                if (!currentUserId) {
+                    alert('로그인이 필요합니다.');
+                    return;
+                }
+
+                // Supabase에 새 학생 저장
+                try {
+                    if (typeof supabase !== 'undefined' && supabase) {
+                        const studentData = {
+                            name: formData.name.trim(),
+                            phone: formData.phone.trim(),
+                            school: formData.school.trim(),
+                            grade: formData.grade.trim(),
+                            has_test_profile: false,
+                            user_id: currentUserId
+                        };
+
+                        const { error } = await supabase
+                            .from('students')
+                            .insert([studentData]);
+                        
+                        if (error) throw error;
+                        
+                        // 성공 메시지
+                        alert('사용자가 성공적으로 등록되었습니다.');
+                        
+                        // 폼 초기화 및 사이드 패널 닫기
+                        setFormData({ name: '', phone: '', school: '', grade: '' });
+                        setErrors({});
+                        setShowSidePanel(false);
+                    } else {
+                        throw new Error('Supabase가 초기화되지 않았습니다.');
+                    }
+                } catch (error) {
+                    console.error('사용자 저장 실패:', error);
+                    alert('사용자 저장 중 오류가 발생했습니다: ' + error.message);
+                }
+            };
+
+            // 사용자 추가 사이드 패널
+            const AddUserSidePanel = () => {
+                if (!showSidePanel) {
+                    return null;
+                }
+                
+                // 사이드 패널 내부에서 사용할 로컬 상태 (재렌더링 방지)
+                const [localFormData, setLocalFormData] = useState(formData);
+                const nameInputRef = useRef(null);
+                
+                // 사이드 패널이 열릴 때 포커스 설정 및 로컬 상태 초기화
+                useEffect(() => {
+                    if (showSidePanel) {
+                        setLocalFormData(formData);
+                        if (nameInputRef.current) {
+                            setTimeout(() => {
+                                nameInputRef.current?.focus();
+                            }, 100);
+                        }
+                    }
+                }, [showSidePanel]);
+                
+                const handleLocalInputChange = (e) => {
+                    const { name, value } = e.target;
+                    const newData = {
+                        ...localFormData,
+                        [name]: value
+                    };
+                    setLocalFormData(newData);
+                    // 사이드 패널이 열려있는 동안은 부모 상태 업데이트하지 않음 (재렌더링 방지로 한글 입력 문제 해결)
+                    // setFormData(newData); // 제거: 부모 상태 업데이트 시 재렌더링되어 IME 상태 초기화됨
+                    if (errors[name]) {
+                        setErrors(prev => ({
+                            ...prev,
+                            [name]: ''
+                        }));
+                    }
+                };
+                
+                const handleLocalPhoneChange = (e) => {
+                    const { name, value } = e.target;
+                    const processedValue = formatPhoneNumber(value);
+                    const newData = {
+                        ...localFormData,
+                        [name]: processedValue
+                    };
+                    setLocalFormData(newData);
+                    // 사이드 패널이 열려있는 동안은 부모 상태 업데이트하지 않음 (재렌더링 방지)
+                    // setFormData(newData); // 제거: 부모 상태 업데이트 시 재렌더링되어 포커스 이동
+                    if (errors[name]) {
+                        setErrors(prev => ({
+                            ...prev,
+                            [name]: ''
+                        }));
+                    }
+                };
+                
+                const handleLocalSubmit = async (e) => {
+                    e.preventDefault();
+                    
+                    // 로컬 상태로 유효성 검사
+                    const newErrors = {};
+                    if (!localFormData.name.trim()) {
+                        newErrors.name = '이름을 입력해주세요.';
+                    }
+                    if (!localFormData.phone.trim()) {
+                        newErrors.phone = '연락처를 입력해주세요.';
+                    }
+                    if (!localFormData.school.trim()) {
+                        newErrors.school = '학교명을 입력해주세요.';
+                    }
+                    if (!localFormData.grade.trim()) {
+                        newErrors.grade = '학년을 선택해주세요.';
+                    }
+
+                    if (Object.keys(newErrors).length > 0) {
+                        setErrors(newErrors);
+                        return;
+                    }
+
+                    // Supabase 인증 확인
+                    if (!currentUserId) {
+                        alert('로그인이 필요합니다.');
+                        return;
+                    }
+
+                    // Supabase에 새 학생 저장
+                    try {
+                        if (typeof supabase !== 'undefined' && supabase) {
+                            const studentData = {
+                                name: localFormData.name.trim(),
+                                phone: localFormData.phone.trim(),
+                                school: localFormData.school.trim(),
+                                grade: localFormData.grade.trim(),
+                                has_test_profile: false,
+                                user_id: currentUserId
+                            };
+
+                            const { error } = await supabase
+                                .from('students')
+                                .insert([studentData]);
+                            
+                            if (error) throw error;
+                            
+                            // 폼 초기화
+                            const emptyData = { name: '', phone: '', school: '', grade: '' };
+                            setFormData(emptyData);
+                            setLocalFormData(emptyData);
+                            setErrors({});
+                            
+                            // 사이드 패널 닫기 (ref도 함께 업데이트)
+                            setShowSidePanel(false);
+                            sidePanelOpenRef.current = false;
+                            
+                            // 성공 메시지 (패널이 닫힌 후 표시)
+                            setTimeout(() => {
+                                alert('사용자가 성공적으로 등록되었습니다.');
+                            }, 100);
+                        } else {
+                            throw new Error('Supabase가 초기화되지 않았습니다.');
+                        }
+                    } catch (error) {
+                        console.error('사용자 저장 실패:', error);
+                        alert('사용자 저장 중 오류가 발생했습니다: ' + error.message);
+                    }
+                };
+                
+                return (
+                    <>
+                        {/* 오버레이 (배경 어둡게) */}
+                        <div 
+                            className="side-panel-overlay show"
+                            onClick={() => {
+                                setShowSidePanel(false);
+                                sidePanelOpenRef.current = false;
+                            }}
+                        />
+                        
+                        {/* 사이드 패널 */}
+                        <div className="side-panel open">
+                            <div className="side-panel-header">
+                                <h2>사용자 추가</h2>
+                                <button 
+                                    type="button"
+                                    className="side-panel-close-btn" 
+                                    onClick={() => {
+                                        setShowSidePanel(false);
+                                        sidePanelOpenRef.current = false;
+                                    }}
+                                >
+                                    <i className="fas fa-times"></i>
+                                </button>
+                            </div>
+                            <form className="side-panel-form" onSubmit={handleLocalSubmit} noValidate>
+                                <div className="form-group">
+                                    <label htmlFor="name">
+                                        이름 <span className="required">*</span>
+                                    </label>
+                                    <input
+                                        ref={nameInputRef}
+                                        type="text"
+                                        id="name"
+                                        name="name"
+                                        value={localFormData.name}
+                                        onChange={handleLocalInputChange}
+                                        placeholder="이름을 입력하세요"
+                                        className={errors.name ? 'error' : ''}
+                                        autoComplete="off"
+                                    />
+                                    {errors.name && <span className="error-message">{errors.name}</span>}
+                                </div>
+                                <div className="form-group">
+                                    <label htmlFor="phone">
+                                        연락처 <span className="required">*</span>
+                                    </label>
+                                    <input
+                                        type="tel"
+                                        id="phone"
+                                        name="phone"
+                                        value={localFormData.phone}
+                                        onChange={handleLocalPhoneChange}
+                                        placeholder="010-1234-5678"
+                                        className={errors.phone ? 'error' : ''}
+                                        autoComplete="off"
+                                        ref={(input) => {
+                                            // 포커스 유지 (재렌더링 시에도 포커스 유지)
+                                            if (input && document.activeElement === input) {
+                                                // 이미 포커스가 있으면 유지
+                                            }
+                                        }}
+                                    />
+                                    {errors.phone && <span className="error-message">{errors.phone}</span>}
+                                </div>
+                                <div className="form-group">
+                                    <label htmlFor="school">
+                                        학교명 <span className="required">*</span>
+                                    </label>
+                                    <input
+                                        type="text"
+                                        id="school"
+                                        name="school"
+                                        value={localFormData.school}
+                                        onChange={handleLocalInputChange}
+                                        placeholder="학교명을 입력하세요"
+                                        className={errors.school ? 'error' : ''}
+                                        autoComplete="off"
+                                    />
+                                    {errors.school && <span className="error-message">{errors.school}</span>}
+                                </div>
+                                <div className="form-group">
+                                    <label htmlFor="grade">
+                                        학년 <span className="required">*</span>
+                                    </label>
+                                    <select
+                                        id="grade"
+                                        name="grade"
+                                        value={localFormData.grade}
+                                        onChange={handleLocalInputChange}
+                                        className={errors.grade ? 'error' : ''}
+                                    >
+                                        <option value="">학년을 선택하세요</option>
+                                        <option value="1">1학년</option>
+                                        <option value="2">2학년</option>
+                                        <option value="3">3학년</option>
+                                        <option value="4">4학년</option>
+                                        <option value="5">5학년</option>
+                                        <option value="6">6학년</option>
+                                    </select>
+                                    {errors.grade && <span className="error-message">{errors.grade}</span>}
+                                </div>
+                                <div className="side-panel-actions">
+                                    <button 
+                                        type="button" 
+                                        className="btn btn-secondary" 
+                                        onClick={() => {
+                                            setShowSidePanel(false);
+                                            sidePanelOpenRef.current = false;
+                                        }}
+                                    >
+                                        취소
+                                    </button>
+                                    <button type="submit" className="btn btn-primary">
+                                        등록
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </>
+                );
+            };
+
+            const handleStartTest = (studentId, studentName) => {
+                // 테스트 페이지로 이동 (나중에 구현)
+                // window.location.href = `test.html?studentId=${studentId}`;
+                alert(`${studentName}님의 테스트를 시작합니다.\n테스트 페이지 구현 후 연결됩니다.`);
+            };
+
+            const handleViewAnalysis = async (studentId) => {
+                // 분석 내용 확인 페이지로 이동 (나중에 구현)
+                // window.location.href = `analysis.html?studentId=${studentId}`;
+                alert(`학생 ID ${studentId}의 분석 내용을 확인합니다.\n분석 페이지 구현 후 연결됩니다.`);
+            };
+
+            // 체크박스 선택/해제 핸들러
+            const handleSelectUser = (userId) => {
+                setSelectedUsers(prev => {
+                    if (prev.includes(userId)) {
+                        return prev.filter(id => id !== userId);
+                    } else {
+                        return [...prev, userId];
+                    }
+                });
+            };
+
+            // 전체 선택/해제 핸들러
+            const handleSelectAll = (e) => {
+                if (e.target.checked) {
+                    setSelectedUsers(users.map(user => user.id));
+                } else {
+                    setSelectedUsers([]);
+                }
+            };
+
+            // 선택된 사용자 삭제 핸들러
+            const handleDeleteSelected = async () => {
+                if (selectedUsers.length === 0) {
+                    alert('삭제할 사용자를 선택해주세요.');
+                    return;
+                }
+
+                if (!confirm(`선택한 ${selectedUsers.length}명의 사용자를 삭제하시겠습니까?`)) {
+                    return;
+                }
+
+                try {
+                    if (typeof supabase !== 'undefined' && supabase) {
+                        // 삭제 전 현재 스크롤 위치 저장
+                        if (tableContainerRef.current) {
+                            scrollPositionRef.current = tableContainerRef.current.scrollTop || window.scrollY;
+                        }
+                        
+                        // 선택된 모든 사용자 삭제
+                        const { error } = await supabase
+                            .from('students')
+                            .delete()
+                            .in('id', selectedUsers);
+                        
+                        if (error) throw error;
+                        
+                        // 선택 상태 초기화
+                        setSelectedUsers([]);
+                        
+                        // alert는 실시간 업데이트 후에 표시되도록 약간의 지연
+                        setTimeout(() => {
+                            alert('선택한 사용자가 성공적으로 삭제되었습니다.');
+                        }, 200);
+                    } else {
+                        throw new Error('Supabase가 초기화되지 않았습니다.');
+                    }
+                } catch (error) {
+                    console.error('사용자 삭제 실패:', error);
+                    alert('사용자 삭제 중 오류가 발생했습니다: ' + error.message);
+                }
+            };
+
+            // 로딩 상태는 App 컴포넌트에서 처리하므로 여기서는 제거
+
+            return (
+                <div className="content-section">
+                    <div className="content-header">
+                        <div>
+                            <h1>학습 성향 분석</h1>
+                            <p className="content-subtitle">학생들의 학습 습관을 정밀 진단합니다</p>
+                        </div>
+                    </div>
+                    <div className="button-bar">
+                        <button 
+                            className="btn btn-danger" 
+                            onClick={handleDeleteSelected}
+                            disabled={selectedUsers.length === 0}
+                        >
+                            <i className="fas fa-trash"></i> 삭제 ({selectedUsers.length})
+                        </button>
+                        <button 
+                            className="btn btn-primary" 
+                            onClick={() => setShowSidePanel(true)}
+                            disabled={!currentUserId}
+                        >
+                            <i className="fas fa-plus"></i> 사용자 추가
+                        </button>
+                    </div>
+                    <div className="table-container" ref={tableContainerRef}>
+                        <table className="data-table">
+                            <thead>
+                                <tr>
+                                    <th>
+                                        <input 
+                                            type="checkbox" 
+                                            checked={users.length > 0 && selectedUsers.length === users.length}
+                                            onChange={handleSelectAll}
+                                        />
+                                    </th>
+                                    <th>넘버</th>
+                                    <th>이름</th>
+                                    <th>연락처</th>
+                                    <th>학교명</th>
+                                    <th>학년</th>
+                                    <th>분석 현황</th>
+                                    <th>테스트하기</th>
+                                    <th>분석 내용 확인</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {users.length === 0 ? (
+                                    <tr>
+                                        <td colSpan="9" className="empty-state">
+                                            등록된 사용자가 없습니다. "사용자 추가" 버튼을 클릭하여 사용자를 추가하세요.
+                                        </td>
+                                    </tr>
+                                ) : (
+                                    users.map((user) => (
+                                        <tr key={user.id}>
+                                            <td>
+                                                <input 
+                                                    type="checkbox" 
+                                                    checked={selectedUsers.includes(user.id)}
+                                                    onChange={() => handleSelectUser(user.id)}
+                                                />
+                                            </td>
+                                            <td>{user.number}</td>
+                                            <td>{user.name}</td>
+                                            <td>{user.phone}</td>
+                                            <td>{user.school}</td>
+                                            <td>{user.grade}학년</td>
+                                            <td>
+                                                <span className={`status-badge ${user.hasTestProfile ? 'completed' : 'pending'}`}>
+                                                    {user.hasTestProfile ? '완료' : '미완료'}
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <button 
+                                                    className="btn btn-small btn-primary"
+                                                    onClick={() => handleStartTest(user.id, user.name)}
+                                                >
+                                                    테스트하기
+                                                </button>
+                                            </td>
+                                            <td>
+                                                <button 
+                                                    className="btn btn-small btn-secondary"
+                                                    onClick={() => handleViewAnalysis(user.id)}
+                                                    disabled={!user.hasTestProfile}
+                                                >
+                                                    분석 내용 확인
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                    <AddUserSidePanel />
+                </div>
+            );
+        };
+
+        // Training Section
+        const Training = () => {
+            return (
+                <div className="content-section">
+                    <div className="content-header">
+                        <h1>맞춤형 훈련</h1>
+                        <p className="content-subtitle">개인별 맞춤형 학습 훈련 프로그램</p>
+                    </div>
+                    <div className="content-cards">
+                        <div className="content-card">
+                            <h2>훈련 프로그램</h2>
+                            <p>맞춤형 훈련 기능이 여기에 표시됩니다.</p>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // Analytics Section
+        const Analytics = () => {
+            return (
+                <div className="content-section">
+                    <div className="content-header">
+                        <h1>분석 리포트</h1>
+                        <p className="content-subtitle">데이터 기반 인사이트를 확인하세요</p>
+                    </div>
+                    <div className="content-cards">
+                        <div className="content-card">
+                            <h2>통계 분석</h2>
+                            <p>분석 리포트 기능이 여기에 표시됩니다.</p>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // Subscription Section
+        const Subscription = () => {
+            return (
+                <div className="content-section">
+                    <div className="content-header">
+                        <h1>구독 및 결제</h1>
+                        <p className="content-subtitle">구독 플랜을 관리하고 결제 내역을 확인하세요</p>
+                    </div>
+                    <div className="content-cards">
+                        <div className="content-card">
+                            <h2>현재 구독 플랜</h2>
+                            <div className="subscription-plan">
+                                <div className="plan-header">
+                                    <h3>프리미엄 플랜</h3>
+                                    <span className="plan-badge">활성</span>
+                                </div>
+                                <div className="plan-details">
+                                    <p>다음 결제일: 2024년 2월 15일</p>
+                                    <p>월 구독료: ₩29,000</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="content-card">
+                            <h2>결제 내역</h2>
+                            <div className="payment-history">
+                                <p>결제 내역 기능이 여기에 표시됩니다.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // Settings Section
+        const Settings = () => {
+            return (
+                <div className="content-section">
+                    <div className="content-header">
+                        <h1>설정</h1>
+                        <p className="content-subtitle">시스템 설정을 관리하세요</p>
+                    </div>
+                    <div className="content-cards">
+                        <div className="content-card">
+                            <h2>일반 설정</h2>
+                            <p>설정 기능이 여기에 표시됩니다.</p>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // Main App Component
+        const App = () => {
+            const [isCollapsed, setIsCollapsed] = useState(false);
+            const [currentSection, setCurrentSection] = useState('dashboard');
+            const [isLoading, setIsLoading] = useState(true);
+            const [user, setUser] = useState(null);
+            const [userName, setUserName] = useState('');
+
+            // 로그인 상태 확인 및 사용자 정보 가져오기
+            useEffect(() => {
+                if (typeof supabase !== 'undefined' && supabase) {
+                    const checkAuth = async () => {
+                        const { data: { session } } = await supabase.auth.getSession();
+                        if (!session) {
+                            // 로그인되지 않은 경우 index.html로 리다이렉트
+                            window.location.href = 'index.html';
+                        } else {
+                            setUser(session.user);
+                            
+                            // Supabase에서 사용자 이름 가져오기
+                            try {
+                                const { data: userData, error } = await supabase
+                                    .from('users')
+                                    .select('name')
+                                    .eq('id', session.user.id)
+                                    .single();
+                                
+                                if (!error && userData && userData.name) {
+                                    setUserName(userData.name);
+                                } else {
+                                    // 이름이 없으면 이메일에서 이름 추출
+                                    const emailName = session.user.email.split('@')[0];
+                                    setUserName(emailName);
+                                }
+                            } catch (error) {
+                                console.error('사용자 정보 가져오기 오류:', error);
+                                // 오류 발생 시 이메일에서 이름 추출
+                                const emailName = session.user.email.split('@')[0];
+                                setUserName(emailName);
+                            }
+                            
+                            setIsLoading(false);
+                        }
+                    };
+                    
+                    checkAuth();
+                    
+                    // 인증 상태 변경 감지
+                    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+                        if (!session) {
+                            window.location.href = 'index.html';
+                        } else {
+                            checkAuth();
+                        }
+                    });
+                    
+                    return () => {
+                        if (authListener) {
+                            authListener.subscription.unsubscribe();
+                        }
+                    };
+                } else {
+                    setIsLoading(false);
+                }
+            }, []);
+
+            const renderSection = () => {
+                // 섹션 전환을 위한 key prop 추가 (React가 컴포넌트를 재생성하여 애니메이션 트리거)
+                const sectionKey = currentSection;
+                
+                switch (currentSection) {
+                    case 'dashboard':
+                        return <Dashboard key={sectionKey} />;
+                    case 'diagnosis':
+                        return <Diagnosis key={sectionKey} />;
+                    case 'training':
+                        return <Training key={sectionKey} />;
+                    case 'analytics':
+                        return <Analytics key={sectionKey} />;
+                    case 'subscription':
+                        return <Subscription key={sectionKey} />;
+                    case 'settings':
+                        return <Settings key={sectionKey} />;
+                    default:
+                        return <Dashboard key={sectionKey} />;
+                }
+            };
+
+            if (isLoading) {
+                return (
+                    <div className="loading-screen">
+                        <div className="loading-spinner">
+                            <i className="fas fa-spinner fa-spin"></i>
+                        </div>
+                        <p>로딩 중...</p>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="solution-app">
+                    <Sidebar
+                        isCollapsed={isCollapsed}
+                        onToggle={() => setIsCollapsed(!isCollapsed)}
+                        currentSection={currentSection}
+                        onSectionChange={setCurrentSection}
+                        userName={userName}
+                    />
+                    <main className="main-content">
+                        {renderSection()}
+                    </main>
+                </div>
+            );
+        };
+
+        // Render App
+        ReactDOM.render(<App />, document.getElementById('root'));
+    </script>
+</body>
+</html>
+

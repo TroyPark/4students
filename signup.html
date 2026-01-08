@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>회원가입 - 4students</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+</head>
+<body>
+    <div id="root"></div>
+
+    <!-- Supabase SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <!-- Supabase Config -->
+    <script src="js/supabase-config.js"></script>
+
+    <!-- React & Babel -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <!-- Main App -->
+    <script type="text/babel">
+        const { useState } = React;
+        
+        // Supabase 클라이언트 참조
+        const supabase = window.supabase;
+
+        // Signup Page Component
+        const SignupPage = () => {
+            const [formData, setFormData] = useState({
+                name: '',
+                email: '',
+                password: '',
+                confirmPassword: '',
+                phone: '',
+                agreeTerms: false,
+                agreePrivacy: false
+            });
+            const [errors, setErrors] = useState({});
+            const [isSubmitting, setIsSubmitting] = useState(false);
+
+            // 전화번호 포맷팅 함수
+            const formatPhoneNumber = (value) => {
+                // 숫자만 추출
+                const numbers = value.replace(/[^\d]/g, '');
+                
+                // 길이에 따라 포맷팅
+                if (numbers.length <= 3) {
+                    return numbers;
+                } else if (numbers.length <= 7) {
+                    return numbers.slice(0, 3) + '-' + numbers.slice(3);
+                } else if (numbers.length <= 10) {
+                    // 02, 031 등 지역번호
+                    if (numbers.startsWith('02')) {
+                        return numbers.slice(0, 2) + '-' + numbers.slice(2, 6) + '-' + numbers.slice(6);
+                    } else {
+                        return numbers.slice(0, 3) + '-' + numbers.slice(3, 6) + '-' + numbers.slice(6);
+                    }
+                } else {
+                    // 11자리 (010-1234-5678)
+                    if (numbers.startsWith('010') || numbers.startsWith('011') || numbers.startsWith('016') || 
+                        numbers.startsWith('017') || numbers.startsWith('018') || numbers.startsWith('019')) {
+                        return numbers.slice(0, 3) + '-' + numbers.slice(3, 7) + '-' + numbers.slice(7, 11);
+                    } else if (numbers.startsWith('02')) {
+                        return numbers.slice(0, 2) + '-' + numbers.slice(2, 6) + '-' + numbers.slice(6, 10);
+                    } else {
+                        return numbers.slice(0, 3) + '-' + numbers.slice(3, 7) + '-' + numbers.slice(7, 11);
+                    }
+                }
+            };
+
+            const handleChange = (e) => {
+                const { name, value, type, checked } = e.target;
+                
+                // 전화번호 필드인 경우 포맷팅 적용
+                let processedValue = value;
+                if (name === 'phone' && type !== 'checkbox') {
+                    processedValue = formatPhoneNumber(value);
+                }
+                
+                setFormData(prev => ({
+                    ...prev,
+                    [name]: type === 'checkbox' ? checked : processedValue
+                }));
+                // 에러 초기화
+                if (errors[name]) {
+                    setErrors(prev => ({
+                        ...prev,
+                        [name]: ''
+                    }));
+                }
+            };
+
+            const validateForm = () => {
+                const newErrors = {};
+
+                // 이름 검증
+                if (!formData.name.trim()) {
+                    newErrors.name = '이름을 입력해주세요.';
+                } else if (formData.name.trim().length < 2) {
+                    newErrors.name = '이름은 2자 이상 입력해주세요.';
+                }
+
+                // 이메일 검증
+                if (!formData.email.trim()) {
+                    newErrors.email = '이메일을 입력해주세요.';
+                } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+                    newErrors.email = '올바른 이메일 형식을 입력해주세요.';
+                }
+
+                // 비밀번호 검증
+                if (!formData.password) {
+                    newErrors.password = '비밀번호를 입력해주세요.';
+                } else if (formData.password.length < 8) {
+                    newErrors.password = '비밀번호는 8자 이상 입력해주세요.';
+                } else if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(formData.password)) {
+                    newErrors.password = '비밀번호는 영문 대소문자와 숫자를 포함해야 합니다.';
+                }
+
+                // 비밀번호 확인 검증
+                if (!formData.confirmPassword) {
+                    newErrors.confirmPassword = '비밀번호 확인을 입력해주세요.';
+                } else if (formData.password !== formData.confirmPassword) {
+                    newErrors.confirmPassword = '비밀번호가 일치하지 않습니다.';
+                }
+
+                // 전화번호 검증 (필수)
+                const phoneNumbers = formData.phone.replace(/[^\d]/g, '');
+                if (!formData.phone.trim()) {
+                    newErrors.phone = '전화번호를 입력해주세요.';
+                } else if (phoneNumbers.length < 9 || phoneNumbers.length > 11) {
+                    newErrors.phone = '올바른 전화번호를 입력해주세요. (9-11자리)';
+                } else if (!/^[0-9-]+$/.test(formData.phone)) {
+                    newErrors.phone = '올바른 전화번호 형식을 입력해주세요.';
+                }
+
+                // 약관 동의 검증
+                if (!formData.agreeTerms) {
+                    newErrors.agreeTerms = '이용약관에 동의해주세요.';
+                }
+                if (!formData.agreePrivacy) {
+                    newErrors.agreePrivacy = '개인정보 처리방침에 동의해주세요.';
+                }
+
+                setErrors(newErrors);
+                return Object.keys(newErrors).length === 0;
+            };
+
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                
+                if (!validateForm()) {
+                    return;
+                }
+
+                setIsSubmitting(true);
+                setErrors({});
+
+                try {
+                    // Supabase Authentication으로 회원가입
+                    const { data: authData, error: authError } = await supabase.auth.signUp({
+                        email: formData.email,
+                        password: formData.password,
+                        options: {
+                            data: {
+                                name: formData.name,
+                                phone: formData.phone
+                            }
+                        }
+                    });
+
+                    if (authError) throw authError;
+
+                    // Supabase Database에 추가 사용자 정보 저장
+                    if (authData.user) {
+                        try {
+                            const { error: dbError } = await supabase
+                                .from('users')
+                                .insert([
+                                    {
+                                        id: authData.user.id,
+                                        name: formData.name,
+                                        email: formData.email,
+                                        phone: formData.phone,
+                                        created_at: new Date().toISOString(),
+                                        updated_at: new Date().toISOString()
+                                    }
+                                ]);
+                            
+                            if (dbError) {
+                                console.warn('Database 저장 실패:', dbError);
+                            }
+                        } catch (dbError) {
+                            // Database 저장 실패 시에도 계정은 생성되었으므로 계속 진행
+                            console.warn('Database 저장 실패:', dbError);
+                        }
+                    }
+
+                    // 성공 메시지
+                    alert('회원가입이 완료되었습니다!\n이메일 인증 메일을 확인해주세요.');
+                    
+                    // 로그인된 사용자 페이지로 이동
+                    window.location.href = 'complete_login.html';
+                    
+                } catch (error) {
+                    setIsSubmitting(false);
+                    
+                    // Supabase 에러 메시지 처리
+                    let errorMessage = '회원가입 중 오류가 발생했습니다.';
+                    
+                    if (error.message) {
+                        if (error.message.includes('already registered')) {
+                            errorMessage = '이미 사용 중인 이메일입니다.';
+                            setErrors({ email: errorMessage });
+                        } else if (error.message.includes('Invalid email')) {
+                            errorMessage = '올바른 이메일 형식이 아닙니다.';
+                            setErrors({ email: errorMessage });
+                        } else if (error.message.includes('Password')) {
+                            errorMessage = '비밀번호가 너무 약합니다. (최소 6자 이상)';
+                            setErrors({ password: errorMessage });
+                        } else if (error.message.includes('network')) {
+                            errorMessage = '네트워크 오류가 발생했습니다. 인터넷 연결을 확인해주세요.';
+                            setErrors({ submit: errorMessage });
+                        } else {
+                            errorMessage = error.message;
+                            setErrors({ submit: errorMessage });
+                        }
+                    } else {
+                        setErrors({ submit: errorMessage });
+                    }
+                    
+                    console.error('회원가입 오류:', error);
+                }
+            };
+
+            return (
+                <div className="signup-page">
+                    <div className="signup-container">
+                        <div className="signup-header">
+                            <a href="index.html" className="signup-back-btn">
+                                <i className="fas fa-arrow-left"></i> 홈으로
+                            </a>
+                            <img src="images/logo_white.png" alt="4students" className="signup-logo" />
+                            <h2>회원가입</h2>
+                            <p>4students와 함께 시작하세요</p>
+                        </div>
+                        <form className="signup-form" onSubmit={handleSubmit}>
+                            {errors.submit && <div className="login-error">{errors.submit}</div>}
+                            <div className="form-group">
+                                <label htmlFor="name">
+                                    <i className="fas fa-user"></i> 이름 <span className="required">*</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    id="name"
+                                    name="name"
+                                    value={formData.name}
+                                    onChange={handleChange}
+                                    placeholder="이름을 입력하세요"
+                                    className={errors.name ? 'error' : ''}
+                                />
+                                {errors.name && <span className="error-message">{errors.name}</span>}
+                            </div>
+
+                            <div className="form-group">
+                                <label htmlFor="email">
+                                    <i className="fas fa-envelope"></i> 이메일 <span className="required">*</span>
+                                </label>
+                                <input
+                                    type="email"
+                                    id="email"
+                                    name="email"
+                                    value={formData.email}
+                                    onChange={handleChange}
+                                    placeholder="이메일을 입력하세요"
+                                    className={errors.email ? 'error' : ''}
+                                />
+                                {errors.email && <span className="error-message">{errors.email}</span>}
+                            </div>
+
+                            <div className="form-group">
+                                <label htmlFor="password">
+                                    <i className="fas fa-lock"></i> 비밀번호 <span className="required">*</span>
+                                </label>
+                                <input
+                                    type="password"
+                                    id="password"
+                                    name="password"
+                                    value={formData.password}
+                                    onChange={handleChange}
+                                    placeholder="8자 이상, 영문 대소문자, 숫자 포함"
+                                    className={errors.password ? 'error' : ''}
+                                />
+                                {errors.password && <span className="error-message">{errors.password}</span>}
+                            </div>
+
+                            <div className="form-group">
+                                <label htmlFor="confirmPassword">
+                                    <i className="fas fa-lock"></i> 비밀번호 확인 <span className="required">*</span>
+                                </label>
+                                <input
+                                    type="password"
+                                    id="confirmPassword"
+                                    name="confirmPassword"
+                                    value={formData.confirmPassword}
+                                    onChange={handleChange}
+                                    placeholder="비밀번호를 다시 입력하세요"
+                                    className={errors.confirmPassword ? 'error' : ''}
+                                />
+                                {errors.confirmPassword && <span className="error-message">{errors.confirmPassword}</span>}
+                            </div>
+
+                            <div className="form-group">
+                                <label htmlFor="phone">
+                                    <i className="fas fa-phone"></i> 전화번호 <span className="required">*</span>
+                                </label>
+                                <input
+                                    type="tel"
+                                    id="phone"
+                                    name="phone"
+                                    value={formData.phone}
+                                    onChange={handleChange}
+                                    placeholder="010-1234-5678"
+                                    className={errors.phone ? 'error' : ''}
+                                    required
+                                />
+                                {errors.phone && <span className="error-message">{errors.phone}</span>}
+                            </div>
+
+                            <div className="form-group checkbox-group">
+                                <label className="checkbox-label">
+                                    <input
+                                        type="checkbox"
+                                        name="agreeTerms"
+                                        checked={formData.agreeTerms}
+                                        onChange={handleChange}
+                                    />
+                                    <span>
+                                        <a href="#" target="_blank">이용약관</a>에 동의합니다 <span className="required">*</span>
+                                    </span>
+                                </label>
+                                {errors.agreeTerms && <span className="error-message">{errors.agreeTerms}</span>}
+                            </div>
+
+                            <div className="form-group checkbox-group">
+                                <label className="checkbox-label">
+                                    <input
+                                        type="checkbox"
+                                        name="agreePrivacy"
+                                        checked={formData.agreePrivacy}
+                                        onChange={handleChange}
+                                    />
+                                    <span>
+                                        <a href="#" target="_blank">개인정보 처리방침</a>에 동의합니다 <span className="required">*</span>
+                                    </span>
+                                </label>
+                                {errors.agreePrivacy && <span className="error-message">{errors.agreePrivacy}</span>}
+                            </div>
+
+                            <button 
+                                type="submit" 
+                                className="signup-submit-btn"
+                                disabled={isSubmitting}
+                            >
+                                {isSubmitting ? (
+                                    <>
+                                        <i className="fas fa-spinner fa-spin"></i> 처리 중...
+                                    </>
+                                ) : (
+                                    <>
+                                        <i className="fas fa-user-plus"></i> 회원가입
+                                    </>
+                                )}
+                            </button>
+
+                            <div className="signup-login">
+                                이미 계정이 있으신가요? <a href="index.html">로그인</a>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            );
+        };
+
+        // Render App
+        ReactDOM.render(<SignupPage />, document.getElementById('root'));
+    </script>
+</body>
+</html>
